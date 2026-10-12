@@ -1,0 +1,40 @@
+#!/bin/bash
+# Start / stop / check the inbox watcher (a per-user LaunchAgent).
+#   bin/watcher-ctl start | stop | restart | status | logs
+set -eu
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LABEL=local.reels.watcher
+DEST="$HOME/Library/LaunchAgents/$LABEL.plist"
+DOMAIN="gui/$(id -u)"
+
+case "${1:-status}" in
+  start)
+    mkdir -p "$ROOT/logs"
+    sed -e "s#__ROOT__#$ROOT#g" -e "s#__HOME__#$HOME#g" "$ROOT/launchd/$LABEL.plist" > "$DEST"
+    plutil -lint "$DEST" >/dev/null
+    launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
+    launchctl bootstrap "$DOMAIN" "$DEST"
+    echo "watcher started — logs: $ROOT/logs/watcher.log"
+    ;;
+  stop)
+    launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null && echo "watcher stopped" || echo "watcher was not running"
+    rm -f "$DEST"
+    ;;
+  restart)
+    "$0" stop; "$0" start
+    ;;
+  status)
+    if launchctl print "$DOMAIN/$LABEL" >/dev/null 2>&1; then
+      launchctl print "$DOMAIN/$LABEL" | awk '/^\t(state|pid|last exit code) =/ {sub(/^\t/, "  watcher "); print}'
+    else
+      echo "  not loaded"
+    fi
+    "$ROOT/bin/reels" status
+    ;;
+  logs)
+    tail -n 40 -f "$ROOT/logs/watcher.log"
+    ;;
+  *)
+    echo "usage: $0 start|stop|restart|status|logs"; exit 2
+    ;;
+esac

@@ -1,0 +1,25 @@
+# Post copy rules. One case-insensitive regex per line; # starts a comment.
+# [copy] rules apply to captions and hashtags. [claims] rules also apply to the spoken words of every
+# chosen clip. Make your own in private/banned-phrases.txt (it replaces this file).
+
+[copy]
+# Words you never want in a caption, e.g. a description of your product you don't use:
+# \bmental[- ]health app\b
+
+[claims]
+\btreat(s|ed|ing|ment|ments)?\b
+\bcur(e|es|ed|ing)\b
+\bheal(s|ed|ing)?\b
+\btherap(y|ies|ist|ists|eutic|eutically)\b
+\bclinical(ly)?\b
+\bdiagnos\w*
+\bprescri\w*
+\bmedical(ly)?\b
+\bmedicine\b
+\bsymptoms?\b
+\bdisorders?\b
+\b(reduce|reduces|reduced|reducing|relieve|relieves|relieved|relief from|lower|lowers|fix|fixes|fixed|beat|beats|eliminate|eliminates|prevent|prevents|manage|manages) (your |my |their |)(anxiety|depression|stress|panic|insomnia|burnout|ptsd|adhd|ocd|trauma)\b
+\b(anxiety|stress|depression|panic) relief\b
+\bproven to\b
+\bscientifically proven\b
+\bguaranteed\b

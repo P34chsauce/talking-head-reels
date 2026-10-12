@@ -1,0 +1,33 @@
+#!/bin/bash
+# One-time (and safe to re-run) setup of everything the pipeline needs on this Mac. All free.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+mkdir -p inbox work ready archive models logs state
+
+echo "== Homebrew tools"
+brew install fswatch whisper-cpp auto-editor syncthing ffmpeg-full   # ffmpeg-full is keg-only
+
+echo "== Python venv (pipeline)"
+uv sync
+
+echo "== WhisperX venv (word alignment, ~1 GB, kept in models/.wx)"
+[ -x models/.wx/bin/python ] || uv venv models/.wx --python 3.12
+uv pip install -q --python models/.wx/bin/python whisperx
+
+echo "== Models"
+[ -f models/ggml-large-v3-turbo.bin ] || curl -L --fail -o models/ggml-large-v3-turbo.bin.part \
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin \
+  && { [ -f models/ggml-large-v3-turbo.bin ] || mv models/ggml-large-v3-turbo.bin.part models/ggml-large-v3-turbo.bin; }
+HF_HOME="$ROOT/models/hf" models/.wx/bin/python -c "
+import warnings; warnings.filterwarnings('ignore')
+import whisperx; whisperx.load_align_model(language_code='en', device='cpu', model_dir='models/hf'); print('alignment model ready')"
+
+echo "== Remotion (captions)"
+(cd captions && npm install --no-audit --no-fund)
+
+echo "== Tests"
+uv run pytest -q
+
+echo
+echo "Done. Next: brew services start syncthing, pair the phone (README), then bin/watcher-ctl start"

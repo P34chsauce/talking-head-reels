@@ -1,0 +1,25 @@
+# Media never goes in git
+inbox/
+work/
+ready/
+archive/
+*.mp4
+*.mov
+*.wav
+*.m4a
+models/
+node_modules/
+.DS_Store
+
+# Local runtime state
+.venv/
+state/
+logs/
+__pycache__/
+.pytest_cache/
+*.error.log
+
+# Your own channel brief, rules and settings (override config/), and session notes
+private/
+notes/
+.claude/settings.local.json

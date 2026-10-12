@@ -1,0 +1,24 @@
+# Words cut from the audio/video (swearMode "cut") or muted ("mute") and dropped from captions.
+# One lowercase stem per line; a word matches if it starts with a stem (fucking, shitty, ...).
+# Lines starting with = match the whole word only.
+fuck
+motherfuck
+shit
+bullshit
+cunt
+bastard
+bollock
+wank
+twat
+dickhead
+=prick
+=piss
+=pissed
+=bitch
+=bitches
+=arse
+=arsehole
+=ass
+=asshole
+=dick
+=goddamn

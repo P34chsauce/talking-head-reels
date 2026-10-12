@@ -1,0 +1,14 @@
+{
+  "font": "Atkinson Hyperlegible",
+  "fontWeight": 700,
+  "fontSize": 84,
+  "textColor": "#FFFFFF",
+  "highlightColor": "#FF6B4A",
+  "outlineColor": "#1C1C1C",
+  "outlineWidth": 14,
+  "wordsPerPhrase": 4,
+  "phraseBreakGapS": 0.45,
+  "maxEmojisPerClip": 2,
+  "captionCenterY": 0.68,
+  "swearMode": "cut"
+}

@@ -1,0 +1,5 @@
+#!/bin/bash
+# reels CLI. Runs the project venv directly so it works under launchd (no uv needed at runtime).
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+export PYTHONPATH="$ROOT/lib"
+exec "$ROOT/.venv/bin/python" -m reels "$@"

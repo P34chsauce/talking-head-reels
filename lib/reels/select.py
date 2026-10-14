@@ -201,7 +201,11 @@ def validate(plan: dict, words: list[dict], ls: list[dict]) -> list[str]:
             errs.append(f"{tag}: speaker says {h.match!r}, which reads as a claim; pick other lines")
         post = c["caption"] + "\n" + " ".join(c["hashtags"])
         for h in check_copy(post, rules):
-            errs.append(f"{tag}: caption/hashtags contain banned phrase {h.match!r}")
+            if h.section == "bait":
+                errs.append(f"{tag}: caption asks {h.match!r}, which Instagram treats as engagement bait and "
+                            "stops recommending to non-followers; use one plain ask instead")
+            else:
+                errs.append(f"{tag}: caption/hashtags contain banned phrase {h.match!r}")
         for e in c["emojis"]:
             if not (fl <= e["line"] <= ll) or e["line"] in cut:
                 errs.append(f"{tag}: emoji anchor L{e['line']} is not on a kept line of the clip")

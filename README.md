@@ -49,7 +49,7 @@ versions in `private/` (create the folder; git ignores it), and they win:
 |---|---|---|
 | `channel.md` | Who you are, what the channel is about, voice, hashtags, house rules. Claude reads it with every transcript. | replaces |
 | `settings.json` | `notes_dir` (where session notes go), `project_repo` + `project_branch` (the git repo `talking-points` reads), `whisper_prompt` (a punctuated opening line; include names Whisper would misspell) | per key |
-| `banned-phrases.txt` | Regexes no caption may contain (`[copy]`), plus claims you may not say on camera either (`[claims]`) | replaces |
+| `banned-phrases.txt` | Regexes no caption may contain (`[copy]`), plus claims you may not say on camera either (`[claims]`). Engagement-bait asks ("comment YES", "tag a friend") are always rejected, whatever this file says | replaces |
 | `swears.txt` | Words cut out of the audio | replaces |
 | `style.json` | Caption font, size, colours, position, emojis per clip, `swearMode` | per key |
 
@@ -124,7 +124,7 @@ use one.
 | Swears, "um"/"uh", dropped lines | cut out of video + audio, cut edges snapped to the quietest audio, never into the next word; Claude drops retakes, asides and tangents (`cut_lines`) and fixes mistranscribed caption words | `swearMode: "mute"` in `style.json` mutes instead |
 | Loudness | voice compressor, measured exact gain, peak limiter, re-measured | -14 LUFS integrated (±0.2), under -1.5 dBTP |
 | Captions | Remotion (word highlight in `highlightColor`, 0-2 emojis) | falls back to ASS/libass automatically (no emojis) |
-| Copy check | `banned-phrases.txt` | gates every caption and the spoken words of every clip |
+| Copy check | `banned-phrases.txt` | gates every caption and the spoken words of every clip; captions are also checked for engagement bait, which Instagram won't recommend to non-followers |
 | Publish | `ready/`, `notes_dir`, `archive/` | content-hash ledger so nothing is done twice |
 
 ## Commands

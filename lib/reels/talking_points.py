@@ -66,8 +66,14 @@ Write 5-7 riff prompts for the next session, in Markdown, addressed to the creat
 language and voice the channel brief asks for. For each prompt:
 ### <n>. <a punchy prompt question>
 - **What happened:** one line grounding it in this week's work (plain words, no commit jargon, no IDs)
-- **Hook to open with:** a first sentence they could say in the first 2 seconds
+- **Hook to open with:** a first sentence of 10 words or fewer they could say in the first 3 seconds,
+  saying what the story is about and why it matters (no greeting, no "so today")
+- **The turn:** the "but…" moment, the thing that didn't go to plan or that they didn't expect
+- **Land it on:** the one-line lesson or payoff to finish on, so the story ends on its peak, not a wind-down
 - **Dig into:** 2-3 follow-up questions about how it felt, what they'd do differently, what it taught them
+
+Each prompt is one idea that a stranger could follow in a 60-second reel with no other context, and
+should leave a viewer something they'd send to a friend.
 
 Rules: mix highs and lows; use the timing pattern (late nights, weekends, busy days) as material where it
 fits; don't repeat topics already covered in past recordings; never suggest wording the channel brief

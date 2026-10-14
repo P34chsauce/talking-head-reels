@@ -37,3 +37,41 @@ def test_private_rules_replace_the_defaults():
     rules = load_rules()
     assert check_copy("a mental wellness app", rules)
     assert check_copy("this treats burnout", rules) == []
+
+
+@pytest.mark.parametrize("text", [
+    "Comment YES if this was you",
+    "comment the word GUIDE and I'll send it",
+    "Drop a 🔥 if you agree",
+    "comment \"rest\" below",
+    "Tag a friend who needs this",
+    "tag 3 founders",
+    "Like if you've been there",
+    "double tap if this is you",
+    "follow for follow",
+    "Like, comment and share!",
+    "share this to your story",
+    "vote with an emoji",
+])
+def test_copy_rejects_engagement_bait(text):
+    hits = check_copy(text)
+    assert hits and hits[0].section == "bait", text
+
+
+@pytest.mark.parametrize("text", [
+    "Send this to the friend who works past midnight.",
+    "Follow if you want the next one, I post every day.",
+    "What's the one thing that actually helped you rest?",
+    "Save this for the next time you want to quit.",
+    "I nearly gave up — no joke. Here's what changed.",
+    "Nobody would reply, no matter what I tried.",
+    "I like it if the code is boring.",
+])
+def test_copy_allows_plain_asks(text):
+    assert check_copy(text) == [], text
+
+
+def test_private_rules_cannot_drop_bait():
+    C.PRIVATE.mkdir()
+    (C.PRIVATE / "banned-phrases.txt").write_text("[copy]\n\\bfoo\\b\n")
+    assert check_copy("Tag a friend who needs this", load_rules())

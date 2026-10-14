@@ -50,6 +50,13 @@ def test_validate_accepts_good_plan_and_rejects_bad_ones():
     assert "not on a kept line of the clip" in errs
 
 
+def test_validate_rejects_engagement_bait_caption():
+    words = make_words(30)
+    ls = S.lines(words)
+    plan = {"slug": "a-b", "notes_md": "", "skipped": [], "clips": [clip(1, 10, caption="Tag a friend who did this")]}
+    assert "engagement bait" in "\n".join(S.validate(plan, words, ls))
+
+
 def test_validate_rejects_spoken_claims():
     words = make_words(30)
     words[5]["w"] = "cured"

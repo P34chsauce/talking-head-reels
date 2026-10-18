@@ -60,6 +60,16 @@ WHISPER_PROMPT = SETTINGS["whisper_prompt"]
 WX_PYTHON = MODELS / ".wx" / "bin" / "python"  # WhisperX venv for word alignment (see README)
 
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".mkv", ".3gp"}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+
+# Asset library: B-roll, screen recordings, photos and screenshots the edit can cut to.
+# library/ is yours (synced from the phone, read in place, never moved); extras that arrive in inbox/
+# are described, then moved to archive/extras/. Both end up in the catalogue.
+LIBRARY = ROOT / "library"
+EXTRAS = ARCHIVE / "extras"
+CATALOG = STATE / "catalog.jsonl"
+LINK_WINDOW_S = 2 * 3600  # an extra recorded this close to a take belongs to that take
+SHEET_FRAMES = 6  # frames on a video asset's contact sheet
 
 # Output spec (Instagram Reels)
 WIDTH, HEIGHT, FPS = 1080, 1920, 30

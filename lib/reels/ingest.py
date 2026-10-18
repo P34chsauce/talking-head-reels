@@ -11,11 +11,12 @@ from . import config as C
 
 
 def is_candidate(p: Path) -> bool:
-    """Ignore Syncthing temp files (.syncthing.x.tmp, ~syncthing~x.tmp), dotfiles and non-video."""
+    """Ignore Syncthing temp files (.syncthing.x.tmp, ~syncthing~x.tmp), dotfiles, and anything
+    that isn't a video or an image."""
     n = p.name
     if n.startswith(".") or n.startswith("~") or n.endswith(".tmp") or ".syncthing." in n:
         return False
-    return p.is_file() and p.suffix.lower() in C.VIDEO_EXTS
+    return p.is_file() and p.suffix.lower() in C.VIDEO_EXTS | C.IMAGE_EXTS
 
 
 def settled(p: Path, wait: float = C.SETTLE_SECONDS, sleep=time.sleep) -> bool:
@@ -32,7 +33,11 @@ def settled(p: Path, wait: float = C.SETTLE_SECONDS, sleep=time.sleep) -> bool:
 
 
 def probe_ok(p: Path) -> bool:
-    """ffprobe can read a duration and a video stream (a truncated MP4 has no moov atom)."""
+    """ffprobe can read a duration and a video stream (a truncated MP4 has no moov atom);
+    an image has a readable size."""
+    if p.suffix.lower() in C.IMAGE_EXTS:
+        r = subprocess.run(["sips", "-g", "pixelWidth", str(p)], capture_output=True, text=True)
+        return r.returncode == 0 and "pixelWidth: " in r.stdout
     r = subprocess.run(
         [C.FFPROBE, "-v", "error", "-select_streams", "v:0", "-show_entries",
          "format=duration:stream=codec_type", "-of", "json", str(p)],
@@ -76,7 +81,20 @@ def record(rec: dict) -> None:
 
 
 def error_log(p: Path) -> Path:
-    return p.with_name(p.name + ".error.log")
+    """Next to an inbox file; in state/errors/ for library files (library/ is a synced folder)."""
+    try:
+        rel = p.resolve().relative_to(C.LIBRARY.resolve())
+    except ValueError:
+        return p.with_name(p.name + ".error.log")
+    return C.STATE / "errors" / ("library__" + "__".join(rel.parts) + ".error.log")
+
+
+def unique(path: Path) -> Path:
+    n, p = 2, path
+    while p.exists():
+        p = path.with_name(f"{path.stem}-{n}{path.suffix}")
+        n += 1
+    return p
 
 
 def attempts(p: Path) -> int:

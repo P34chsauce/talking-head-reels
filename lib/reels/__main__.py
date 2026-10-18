@@ -7,6 +7,8 @@
   reels status             inbox / ready / failures / heavy queue at a glance
   reels check-copy FILE..  banned-phrase check (exit 1 on any hit)
   reels talking-points     draft riff prompts from the last 7 days of your project (writes to notes)
+  reels library [WORDS..]  list the asset library, or search it ("reels library desk coffee")
+  reels library --scan     describe anything new in library/ now
 """
 from __future__ import annotations
 
@@ -71,6 +73,9 @@ def main(argv: list[str]) -> int:
         print(f"failed: {len(errs)}" + "".join(
             f"\n  - {p.name} ({'gave up' if ingest.gave_up(p.with_name(p.name[:-10])) else 'will retry'})"
             for p in errs))
+        from . import assets as A
+        lib_errs = list((C.STATE / "errors").glob("library__*.error.log")) if (C.STATE / "errors").exists() else []
+        print(f"library: {len(A.entries())} asset(s)" + (f", {len(lib_errs)} failed (state/errors/)" if lib_errs else ""))
         print(f"ready:  {len(ready)} reel(s)" + "".join(f"\n  - {p.name}" for p in ready[-10:]))
         agent = subprocess.run(["launchctl", "list", "local.reels.watcher"], capture_output=True, text=True)
         print("watcher:", "loaded" if agent.returncode == 0 else "not loaded")
@@ -81,6 +86,23 @@ def main(argv: list[str]) -> int:
     if cmd == "check-copy":
         from .copy_check import main as check
         return check(args)
+
+    if cmd == "library":
+        from . import assets as A
+        if args[:1] == ["--scan"]:
+            failed = A.scan_library(wait=False)
+            for p, e in failed:
+                pipeline.fail(p, e)
+            return 1 if failed else 0
+        found = A.search(" ".join(args)) if args else A.entries()
+        for e in found:
+            length = f"{e['duration']:.0f}s" if e["duration"] else "still"
+            flags = "".join(f" [{x}]" for x in (["poor"] if e["quality"] == "poor" else []) + (
+                ["privacy: " + "; ".join(e["privacy"])] if e["privacy"] else []))
+            print(f"{e['id']}  {e['recorded_at'][:16]}  {e['kind']:<10} {length:>5} {e['orientation']:<9} "
+                  f"{e['description'][:90]}{flags}")
+        print(f"{len(found)} asset(s)" + (f" matching {' '.join(args)!r}" if args else ""))
+        return 0
 
     if cmd == "talking-points":
         from .talking_points import main as tp

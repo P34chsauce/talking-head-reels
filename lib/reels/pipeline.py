@@ -13,6 +13,7 @@ import time
 import traceback
 from pathlib import Path
 
+from . import assets as A
 from . import config as C
 from . import ingest
 from . import media as M
@@ -210,18 +211,23 @@ def post_text(clip: dict) -> str:
     return clip["caption"].strip() + "\n\n" + " ".join(clip["hashtags"]) + "\n"
 
 
-def unique(path: Path) -> Path:
-    n, p = 2, path
-    while p.exists():
-        p = path.with_name(f"{path.stem}-{n}{path.suffix}")
-        n += 1
-    return p
+unique = ingest.unique
+
+
+def add_extra(src: Path, sha: str, speech: str = "") -> str:
+    """Not a take: describe it into the library (it moves to archive/extras/)."""
+    log(f"{src.name}: not a take, adding it to the library (claude -p, describe-asset skill)")
+    e = A.add(src, "inbox", sha=sha, speech=speech)
+    ingest.error_log(src).unlink(missing_ok=True)
+    ingest.record({"sha256": sha, "status": "done", "kind": "asset", "job": f"asset {e['id']}",
+                   "source": src.name, "outputs": [], "at": dt.datetime.now().isoformat(timespec="seconds")})
+    return f"done:{e['kind']} {e['id']}: {e['description'][:80]}"
 
 
 def process(src: Path, wait: bool = True) -> str:
     """Returns 'done', 'skipped:<why>'. Raises on failure (caller writes the error log)."""
     if not ingest.is_candidate(src):
-        return "skipped:not a video"
+        return "skipped:not a video or image"
     if ingest.gave_up(src):
         return "skipped:failed before (run `reels retry`)"
     if wait and not ingest.due_for_retry(src):
@@ -239,6 +245,9 @@ def process(src: Path, wait: bool = True) -> str:
         shutil.move(src, dest)
         return f"skipped:already processed as {done['job']} (moved to archive)"
 
+    if A.is_image(src) or A.not_a_take(A.inspect(src)):
+        return add_extra(src, sha)
+
     job = job_dir(src, sha)
     job.mkdir(parents=True, exist_ok=True)
     meta_file = job / "job.json"
@@ -248,6 +257,7 @@ def process(src: Path, wait: bool = True) -> str:
             "duration": M.duration(src)}, indent=2))
     meta = json.loads(meta_file.read_text())
     meta["src"] = str(src)  # the file may have been renamed by a retry
+    meta.setdefault("recorded_at", A.recorded_at(src).isoformat(timespec="seconds"))  # links extras
     meta_file.write_text(json.dumps(meta, indent=2))
     log(f"job {job.name}")
 
@@ -256,8 +266,13 @@ def process(src: Path, wait: bool = True) -> str:
         heavy(f"transcribe {src.name}", "_transcribe", str(job))
 
     if not (job / "plan.json").exists():
-        log("choosing clips (claude -p, make-reels skill)")
         words = json.loads((job / "words.json").read_text())
+        speech = sum(l["speech"] for l in S.lines(words))
+        if speech < C.CLIP_MIN_S:  # too little talking for a clip: it's B-roll with some sound
+            result = add_extra(src, sha, " ".join(w["w"] for w in words))
+            shutil.rmtree(job)
+            return result
+        log("choosing clips (claude -p, make-reels skill)")
         plan, ls = S.plan_clips(words, meta)
         (job / "lines.json").write_text(json.dumps(ls))
         (job / "plan.json").write_text(json.dumps(plan, indent=2, ensure_ascii=False))
@@ -356,6 +371,7 @@ def fail(src: Path, exc: BaseException) -> None:
     kind = ("PERMANENT" if isinstance(exc, S.PermanentError)
             else "TRANSIENT" if isinstance(exc, S.TransientError) else "ERROR")
     n = ingest.attempts(src) + 1
+    ingest.error_log(src).parent.mkdir(parents=True, exist_ok=True)
     with ingest.error_log(src).open("a") as f:
         f.write(f"=== attempt {n} at {dt.datetime.now():%Y-%m-%d %H:%M:%S} [{kind}]\n")
         f.write("".join(traceback.format_exception(exc)) + "\n")
@@ -376,8 +392,12 @@ def sweep(wait: bool = True) -> int:
     try:
         while True:
             RESCAN.unlink(missing_ok=True)
+            for p, e in A.scan_library(wait=wait, log=log):
+                fail(p, e)
+                failures += 1
+            # Images first, then oldest first: extras are in the library before their take is edited.
             files = sorted((p for p in C.INBOX.iterdir() if ingest.is_candidate(p)),
-                           key=lambda p: p.stat().st_mtime) if C.INBOX.exists() else []
+                           key=lambda p: (not A.is_image(p), p.stat().st_mtime)) if C.INBOX.exists() else []
             syncing = False
             for src in files:
                 try:

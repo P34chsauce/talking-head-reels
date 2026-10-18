@@ -1,11 +1,11 @@
 #!/bin/bash
 # Long-running watcher, started by launchd (launchd/local.reels.watcher.plist).
-# Sweeps inbox/ at start, whenever fswatch sees a change, and hourly (retries + anything missed).
+# Sweeps inbox/ (and library/) at start, whenever fswatch sees a change, and hourly (retries + anything missed).
 # A sweep waits for each file to finish syncing, so a burst of events only needs one sweep.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG="$ROOT/logs/watcher.log"
-mkdir -p "$ROOT/logs" "$ROOT/inbox" "$ROOT/ready" "$ROOT/archive"
+mkdir -p "$ROOT/logs" "$ROOT/inbox" "$ROOT/ready" "$ROOT/archive" "$ROOT/library"
 
 # stdin from /dev/null: inside the fswatch loop it would be the fswatch pipe, and claude -p reads stdin
 sweep() { "$ROOT/bin/reels" process < /dev/null >> "$LOG" 2>&1; }
@@ -20,4 +20,4 @@ sweep
 # -o: one line per batch of events; ignore Syncthing temp files and our own error logs.
 fswatch -o --latency 5 \
   -e '/\.syncthing\.' -e '/~syncthing~' -e '\.tmp$' -e '\.error\.log$' -e '/\.stfolder' \
-  "$ROOT/inbox" | while read -r _; do sweep; done
+  "$ROOT/inbox" "$ROOT/library" | while read -r _; do sweep; done

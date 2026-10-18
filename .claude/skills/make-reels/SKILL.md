@@ -28,9 +28,12 @@ stranger watch this to the end, and send it to a specific friend?
 | 0-3 s | Hook: what this is about and why it matters |
 | 3-10 s | Proof the hook's promise is real; a stranger now knows why to keep watching |
 | 10-45 s | The point, with a turn ("but…", "what I didn't expect…") around 20-30 s |
-| last line | The payoff or lesson, then the clip ends. No wind-down |
+| last line | The payoff or lesson, then the speaker's ask if they say one, then the clip ends. No wind-down |
 
-The speaker doesn't script the ask on camera, so the caption carries it (see Post copy).
+**Spoken ask.** When the speaker closes a stretch with an ask to camera (try the product, message them,
+follow along, an open question), that line belongs in the clip: end on it, straight after the payoff. It
+is not a wind-down, so don't trim it. When no ask is spoken, end on the payoff and let the caption carry
+the ask (see Post copy).
 
 ## Pick the clips
 
@@ -48,6 +51,7 @@ The speaker doesn't script the ask on camera, so the caption carries it (see Pos
 - **End on the peak.** The last line is the payoff, the lesson or the punchline, never a wind-down ("so
   yeah", "anyway", "that's about it", "we'll see", a teaser of the next topic) and never mid-sentence.
   Move `last_line` earlier rather than trail off. A last line that flows back into the first is a bonus.
+  The one exception is a spoken ask that directly follows the payoff: keep it as the last line.
 - **Cold-viewer test.** A stranger who has never seen the speaker and sees only this clip must follow it:
   no "like I said", "part two", "yesterday's video", names or in-jokes the clip doesn't explain.
 - **Rank by sendability.** Prefer story moments a viewer would send to a named friend: a turning point, a
@@ -98,7 +102,10 @@ appears in the transcript.
   spelling. No hashtags inside it. Emojis optional (max 2).
   - **Line one** restates the clip's hook in plain words and includes the phrase a stranger would search
     for (Instagram search reads captions).
-  - **Last line: exactly one ask**, the one that fits the clip best:
+  - **Last line: exactly one ask.** If the clip ends on a spoken ask, the caption repeats that ask in
+    plain words and never adds a different one. Otherwise pick the one that fits the clip best, from
+    the asks the channel brief allows (where it names them, use only those):
+    - "Want to try [the product]? Send me a message." or "Message me if you want to talk about [x]."
     - "Send this to the friend who [specific situation]." (best for most clips: sends reach new people)
     - "Follow if you want [specific next thing]." (give a real reason, not "follow for more")
     - A genuine open question: "What's the one thing that actually helped you [x]?"

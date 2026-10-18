@@ -97,11 +97,11 @@ def _child_env() -> dict:
     return {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE") and k not in banned}
 
 
-def ask_claude(prompt: str, timeout: int = 900) -> dict:
+def ask_claude(prompt: str, timeout: int = 900, schema: dict = SCHEMA, tools: str = "Skill") -> dict:
     cmd = [C.CLAUDE, "-p", prompt,
            "--output-format", "json",
-           "--json-schema", json.dumps(SCHEMA),
-           "--permission-mode", "dontAsk", "--allowedTools", "Skill",
+           "--json-schema", json.dumps(schema),
+           "--permission-mode", "dontAsk", "--allowedTools", tools,
            "--strict-mcp-config", "--no-session-persistence"]
     try:
         r = subprocess.run(cmd, cwd=C.ROOT, env=_child_env(), capture_output=True, text=True,

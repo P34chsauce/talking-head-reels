@@ -113,6 +113,22 @@ Session notes (summary, ideas, quotable lines with timestamps, clips, material l
 `notes_dir` (default `notes/`, ignored by git) as `<date>_<slug>.md`. Point it at an Obsidian vault if you
 use one.
 
+## Extras: B-roll, screen recordings, photos
+
+Anything in the inbox that isn't a take goes into an **asset library**: photos, screenshots, videos
+with no sound, videos too short to hold a 30 s clip, and recordings with under 30 s of speech. Record
+or save them into the same `Reels-Inbox` folder as your takes. Each one is described once by
+`claude -p` (`.claude/skills/describe-asset`) from a contact sheet of its frames: what it shows, tags,
+the best moments, quality, and anything that shouldn't be posted (a notification, someone else's face).
+It's then moved to `archive/extras/`. Its capture time (from the phone's file name) links it to the take
+recorded within 2 hours of it.
+
+For content you want available for any reel, put files in `library/` (any subfolders). They're
+described in place and never moved. `bin/reels library` lists the catalogue (`state/catalog.jsonl`);
+`bin/reels library desk night` searches it.
+
+*Using extras in the edit is the next step; for now they're catalogued.*
+
 ## What the pipeline does to each take
 
 | Step | Tool | Notes |
@@ -137,6 +153,8 @@ bin/reels reprocess archive/X.mp4 [--retranscribe]   # run a finished take again
 bin/reels status
 bin/reels check-copy ready/*.txt  # banned-phrase check; exit 1 on any hit
 bin/reels talking-points [--days 7] [--dry-run]
+bin/reels library [WORDS…]        # list or search the asset library
+bin/reels library --scan          # describe anything new in library/ now
 tests/fixtures/make_test_clip.sh /tmp/test.mp4   # synthetic 2-minute take (say + ffmpeg)
 uv run pytest                     # unit tests
 .venv/bin/python tests/bench_alignment.py AUDIO.wav a=words.json …   # compare word-timing accuracy
@@ -152,7 +170,7 @@ uv run pytest                     # unit tests
   and renders go through it so they never run alongside other heavy jobs. Otherwise they just run.
 * **Failures:** the source stays in `inbox/` with `<name>.error.log`. Short-lived failures (usage limit,
   billing guard, network) retry automatically after 1h, 2h, 4h, 8h; after 5 attempts, or on a permanent
-  failure (e.g. under 30 s of speech), it waits for `bin/reels retry`.
+  failure, it waits for `bin/reels retry`. Errors for files in `library/` are logged in `state/errors/`.
 * **Media never enters git.** Nor do `private/` and `notes/`.
 
 ## Troubleshooting

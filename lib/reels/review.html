@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reel review</title>
+<style>
+  :root {
+    --bg: #faf7f5; --panel: #ffffff; --ink: #1c1c1c; --muted: #6b6461; --line: #e7e1dd;
+    --accent: #ff6b4a; --accent-ink: #ffffff; --face: #d9d2ce; --cut: #ff6b4a; --pip: #8a6cf0;
+    --ok: #2f8f5b; --warn: #b5541f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151312; --panel: #1f1c1b; --ink: #f2eeec; --muted: #a39b97; --line: #34302e;
+            --face: #3a3533; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line);
+           padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 17px; margin: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  a { color: inherit; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+           border-radius: 10px; padding: 8px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  .muted { color: var(--muted); }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--line); }
+  .badge.warn { background: var(--accent); color: var(--accent-ink); }
+  /* list */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+          text-decoration: none; display: block; }
+  .card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; background: var(--face); }
+  .card div { padding: 8px 10px; font-size: 13px; }
+  .card b { display: block; font-size: 14px; margin-bottom: 4px; }
+  /* reel */
+  .layout { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } }
+  .player { position: sticky; top: 64px; }
+  @media (max-width: 760px) { .player { position: static; } }
+  video { width: 100%; max-height: 70vh; border-radius: 14px; background: #000; display: block; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  .panel h2 { font-size: 15px; margin: 0 0 10px; }
+  .tl { position: relative; height: 46px; margin-top: 10px; border-radius: 8px; background: var(--face);
+        overflow: hidden; cursor: pointer; touch-action: none; }
+  .tl .blk { position: absolute; top: 0; bottom: 0; background: var(--cut); opacity: .9; color: #fff;
+             font-size: 11px; padding: 3px 4px; overflow: hidden; white-space: nowrap; }
+  .tl .blk.pip { background: var(--pip); }
+  .tl .tick { position: absolute; top: 0; height: 8px; width: 1px; background: var(--muted); opacity: .6; }
+  .tl .note { position: absolute; bottom: 0; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+              background: var(--ink); border: 2px solid var(--panel); }
+  .tl .head { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
+  .legend { font-size: 12px; margin-top: 6px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type=text], textarea, select { font: inherit; color: var(--ink); background: var(--bg);
+           border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+  input[type=text] { flex: 1; min-width: 0; }
+  select { min-width: 0; max-width: 100%; flex: 1; text-overflow: ellipsis; }
+  .layout > *, .cut > div, .panel { min-width: 0; }
+  main { overflow-x: clip; }  /* on main, not body: body overflow moves to the viewport and breaks the sticky Apply bar */
+  .cut select { flex: 1 1 100%; width: 100%; }  /* line names are long: one dropdown per row */
+  textarea { width: 100%; min-height: 80px; resize: vertical; }
+  .comment { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); }
+  .comment:first-of-type { border-top: 0; }
+  .comment .t { font-variant-numeric: tabular-nums; color: var(--accent); cursor: pointer; font-weight: 600; }
+  .comment.done { opacity: .5; }
+  .comment .x { margin-left: auto; padding: 2px 8px; }
+  .cut { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .cut:first-of-type { border-top: 0; }
+  .cut img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: var(--face); }
+  .cut .desc { font-size: 13px; margin-bottom: 6px; }
+  .picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-top: 8px; }
+  .picker button { padding: 0; text-align: left; overflow: hidden; }
+  .picker img { width: 100%; aspect-ratio: 3/2; object-fit: cover; display: block; }
+  .picker span { display: block; padding: 4px 6px; font-size: 11px; }
+  .status { padding: 10px 12px; border-radius: 10px; background: var(--line); margin-bottom: 14px; white-space: pre-wrap; }
+  .status.failed { background: #fbe4dc; color: var(--warn); }
+  .status.ready { background: #dff3e7; color: var(--ok); }
+  @media (prefers-color-scheme: dark) { .status.failed { background: #3a221a; } .status.ready { background: #183126; } }
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ba video { max-height: 50vh; }
+  .sticky-apply { position: sticky; bottom: 0; padding: 12px 0; background: linear-gradient(transparent, var(--bg) 30%); }
+</style>
+</head>
+<body>
+<header><a href="#" id="back" hidden>←</a><h1 id="title">Reels</h1><span id="hint" class="muted"></span></header>
+<main id="app"></main>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const mmss = t => `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, "0")}`;
+const media = p => `/media?path=${encodeURIComponent(p)}&v=${Date.now()}`;
+const api = async (path, body) => {
+  const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)} : {});
+  if (!r.ok) throw new Error((await r.text()) || r.status);
+  return r.json();
+};
+let state = null, poll = null;
+
+async function route() {
+  clearInterval(poll);
+  const id = new URLSearchParams(location.hash.slice(1)).get("reel");
+  id ? showReel(id) : showList();
+}
+window.addEventListener("hashchange", route);
+
+async function showList() {
+  $("#back").hidden = true; $("#title").textContent = "Reels"; $("#hint").textContent = "";
+  const items = await api("/api/reels");
+  $("#app").innerHTML = items.length ? `<div class="grid">${items.map(r => `
+    <a class="card" href="#reel=${encodeURIComponent(r.id)}">
+      <img loading="lazy" src="/poster?id=${encodeURIComponent(r.id)}" alt="">
+      <div><b>${esc(r.title)}</b>
+        <span class="badge">${r.kind === "ready" ? "ready" : "preview"}</span>
+        ${r.pending ? `<span class="badge warn">new version</span>` : ""}
+        ${r.open_comments ? `<span class="badge">${r.open_comments} comment${r.open_comments > 1 ? "s" : ""}</span>` : ""}
+        <div class="muted" style="padding:4px 0 0">${esc(r.updated.replace("T", " "))}</div></div>
+    </a>`).join("")}</div>` : `<p class="muted">No reels yet.</p>`;
+}
+
+async function showReel(id) {
+  const d = await api(`/api/reel?id=${encodeURIComponent(id)}`);
+  state = {d, clip: structuredClone(d.clip), original: JSON.stringify(d.clip), picking: null};
+  $("#back").hidden = false; $("#title").textContent = d.title;
+  $("#hint").textContent = d.kind === "ready" ? "in Reels-Ready" : "preview";
+  $("#app").innerHTML = `
+  <div class="layout">
+    <div class="player">
+      <video id="v" src="${media(d.mp4)}" controls playsinline preload="metadata"></video>
+      <div class="tl" id="tl"></div>
+      <div class="legend muted"><span><i style="background:var(--face)"></i>you</span>
+        <span><i style="background:var(--cut)"></i>full-frame cutaway</span>
+        <span><i style="background:var(--pip)"></i>app + face bubble</span><span>● comment</span></div>
+    </div>
+    <div id="side"></div>
+  </div>`;
+  $("#v").addEventListener("loadedmetadata", drawTimeline);
+  render();
+  if (d.status.state === "working") watch();
+}
+
+function cutaways() {  // what's on screen now, in reel seconds
+  const d = state.d;
+  return (d.timeline ? d.timeline.cutaways : d.cutaways).map(v => ({start: v.start, end: v.end, mode: v.mode}));
+}
+function lineAt(t) {
+  const ls = state.d.timeline?.lines || [];
+  return ls.find(l => t >= l.start - 0.2 && t <= l.end + 0.2) || ls.filter(l => l.start <= t).pop();
+}
+function asset(id) { return state.d.assets.find(a => a.id === id); }
+function dirty() { return JSON.stringify(state.clip) !== state.original; }
+function openNotes() { return state.d.comments.filter(c => !c.done); }
+
+function render() {
+  const {d, clip} = state;
+  const inClip = d.lines.filter(l => l.in_clip);
+  const lineOpts = sel => inClip.map(l => `<option value="${l.n}" ${l.n === sel ? "selected" : ""}>L${l.n}: ${esc(l.text.slice(0, 48))}</option>`).join("");
+  const s = d.status;
+  $("#side").innerHTML = `
+    <div>
+      ${s.state !== "idle" || s.summary ? `<div class="status ${s.state}">${
+        s.state === "working" ? "⏳ " + esc(s.step || "working") + (s.summary ? "\n" + esc(s.summary) : "") :
+        s.state === "failed" ? "Couldn't apply that:\n" + esc(s.error) :
+        esc(s.summary || "")}</div>` : ""}
+      ${d.candidate ? `<div class="panel"><h2>New version: compare, then keep it or go back</h2>
+        <div class="ba"><div><div class="muted">Before</div><video src="${media(d.mp4)}" controls playsinline preload="metadata"></video></div>
+        <div><div class="muted">After</div><video src="${media(d.candidate)}" controls playsinline preload="metadata"></video></div></div>
+        <div class="row" style="margin-top:10px"><button class="primary" id="accept">Keep new version</button>
+        <button id="revert">Go back to before</button></div></div>` : ""}
+      <div class="panel"><h2>Comments</h2>
+        <div class="row"><input type="text" id="note" placeholder="What should change here?">
+          <button id="addNote">Add at <span id="at">0:00.0</span></button></div>
+        <div style="margin-top:8px">${d.comments.length ? d.comments.map(c => `
+          <div class="comment ${c.done ? "done" : ""}"><span class="t" data-seek="${c.t}">${mmss(c.t)}</span>
+          <span>${esc(c.text)}</span>${c.done ? `<span class="muted">done</span>` : `<button class="x" data-del="${c.id}" aria-label="Delete">×</button>`}</div>`).join("")
+          : `<p class="muted" style="margin:6px 0 0">Pause where something's off and say what you want. Claude turns comments into edits when you apply.</p>`}</div>
+      </div>
+      <div class="panel"><h2>Cutaways</h2>
+        ${(clip.visuals || []).map((v, i) => { const a = asset(v.asset); return `
+        <div class="cut"><img src="/thumb?asset=${v.asset}" alt="">
+          <div><div class="desc">${esc(a ? a.description.slice(0, 120) : v.asset)}${a?.privacy?.length ? `<br><span class="muted">⚠ ${esc(a.privacy[0])}</span>` : ""}</div>
+            <div class="row"><select data-i="${i}" data-k="from_line">${lineOpts(v.from_line)}</select>
+              <span class="muted">to</span><select data-i="${i}" data-k="to_line">${lineOpts(v.to_line)}</select></div>
+            <div class="row" style="margin-top:6px"><select data-i="${i}" data-k="mode">
+                <option value="full" ${v.mode === "full" ? "selected" : ""}>Full frame</option>
+                <option value="pip" ${v.mode === "pip" ? "selected" : ""}>Full + face bubble</option></select>
+              <button data-swap="${i}">Swap footage</button><button data-rm="${i}">Remove</button></div>
+            ${state.picking === i ? picker(i) : ""}</div></div>`; }).join("") || `<p class="muted" style="margin:0">No cutaways in this reel.</p>`}
+        <div class="row" style="margin-top:10px"><button id="addCut" ${d.timeline ? "" : "disabled"}>+ Cutaway at the current moment</button>
+          ${d.timeline ? "" : `<span class="muted">(after this reel's first re-render; or ask in a comment)</span>`}</div>
+        ${state.picking === "new" ? picker("new") : ""}
+      </div>
+      <div class="panel"><h2>Post copy</h2>
+        <textarea id="caption">${esc(clip.caption)}</textarea>
+        <div class="row" style="margin-top:8px"><input type="text" id="tags" value="${esc(clip.hashtags.join(" "))}"></div>
+        <p class="muted" style="margin:8px 0 0;font-size:13px">On-screen caption typo? Leave a comment at that moment.</p>
+      </div>
+      <div class="sticky-apply"><button class="primary" id="apply" style="width:100%;padding:12px"
+        ${(dirty() || openNotes().length) && s.state !== "working" && !d.candidate ? "" : "disabled"}>
+        Apply ${openNotes().length ? `${openNotes().length} comment${openNotes().length > 1 ? "s" : ""}` : ""}${openNotes().length && dirty() ? " + " : ""}${dirty() ? "your changes" : ""} and re-render (~3 min)</button></div>
+    </div>`;
+  wire();
+}
+
+function picker(i) {
+  const pick = state.d.assets.map(a => `<button data-pick="${a.id}" data-for="${i}">
+    <img loading="lazy" src="/thumb?asset=${a.id}" alt=""><span>${esc(a.kind)}${a.duration ? " · " + a.duration.toFixed(0) + "s" : ""} · ${esc(a.description.slice(0, 60))}</span></button>`).join("");
+  return `<div class="picker">${pick}</div>`;
+}
+
+function drawTimeline() {
+  const v = $("#v"), tl = $("#tl"), d = state.d;
+  const len = d.timeline?.length || d.duration || v.duration || 1;
+  const pct = t => `${Math.max(0, Math.min(100, t / len * 100))}%`;
+  tl.innerHTML = cutaways().map(c => `<div class="blk ${c.mode}" style="left:${pct(c.start)};width:calc(${pct(c.end)} - ${pct(c.start)})"></div>`).join("")
+    + (d.timeline?.lines || []).map(l => `<div class="tick" style="left:${pct(l.start)}"></div>`).join("")
+    + d.comments.filter(c => !c.done).map(c => `<div class="note" style="left:${pct(c.t)}"></div>`).join("")
+    + `<div class="head" id="head"></div>`;
+  const seek = e => { const r = tl.getBoundingClientRect(); v.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * len; };
+  tl.onpointerdown = e => { seek(e); tl.setPointerCapture(e.pointerId); tl.onpointermove = seek; };
+  tl.onpointerup = () => { tl.onpointermove = null; };
+  if (!state.ticking) {  // one loop per page, not one per redraw
+    state.ticking = true;
+    const tick = () => { const h = $("#head"), at = $("#at"), vv = $("#v"); if (!vv) { state.ticking = false; return; }
+      const L = state.d.timeline?.length || state.d.duration || vv.duration || 1;
+      if (h) h.style.left = `${Math.min(100, vv.currentTime / L * 100)}%`;
+      if (at) at.textContent = mmss(vv.currentTime); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  }
+}
+
+function wire() {
+  const v = $("#v");
+  drawTimeline();
+  document.querySelectorAll("[data-seek]").forEach(el => el.onclick = () => { v.currentTime = +el.dataset.seek; v.play(); });
+  $("#addNote").onclick = async () => {
+    const text = $("#note").value.trim(); if (!text) return $("#note").focus();
+    v.pause();
+    const c = await api("/api/comment", {id: state.d.id, t: v.currentTime, text});
+    state.d.comments.push(c); render();
+  };
+  $("#note").onkeydown = e => { if (e.key === "Enter") $("#addNote").click(); };
+  document.querySelectorAll("[data-del]").forEach(el => el.onclick = async () => {
+    await api("/api/comment/delete", {id: state.d.id, cid: el.dataset.del});
+    state.d.comments = state.d.comments.filter(c => c.id !== el.dataset.del); render();
+  });
+  document.querySelectorAll("select[data-i]").forEach(el => el.onchange = () => {
+    const vis = state.clip.visuals[+el.dataset.i], k = el.dataset.k;
+    vis[k] = k === "mode" ? el.value : +el.value;
+    if (vis.from_line > vis.to_line) { if (k === "from_line") vis.to_line = vis.from_line; else vis.from_line = vis.to_line; }
+    render();
+  });
+  document.querySelectorAll("[data-rm]").forEach(el => el.onclick = () => { state.clip.visuals.splice(+el.dataset.rm, 1); render(); });
+  document.querySelectorAll("[data-swap]").forEach(el => el.onclick = () => { state.picking = state.picking === +el.dataset.swap ? null : +el.dataset.swap; render(); });
+  $("#addCut").onclick = () => { state.picking = state.picking === "new" ? null : "new"; render(); };
+  document.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => {
+    const a = asset(el.dataset.pick), i = el.dataset.for;
+    const mode = ["screen", "screenshot"].includes(a.kind) ? "pip" : "full";
+    if (i === "new") {
+      const l = lineAt(v.currentTime); if (!l) return;
+      state.clip.visuals = [...(state.clip.visuals || []), {from_line: l.n, to_line: l.n, asset: a.id, at: 0, mode, why: "added in review"}]
+        .sort((x, y) => x.from_line - y.from_line);
+    } else Object.assign(state.clip.visuals[+i], {asset: a.id, at: 0, mode});
+    state.picking = null; render();
+  });
+  $("#caption").oninput = e => { state.clip.caption = e.target.value; $("#apply").disabled = false; };
+  $("#tags").oninput = e => { state.clip.hashtags = e.target.value.split(/\s+/).filter(Boolean); $("#apply").disabled = false; };
+  $("#apply").onclick = async () => {
+    try { await api("/api/apply", {id: state.d.id, clip: state.clip}); state.d.status = {state: "working", step: "starting"}; render(); watch(); }
+    catch (e) { alert(e.message); }
+  };
+  if ($("#accept")) $("#accept").onclick = async () => { await api("/api/accept", {id: state.d.id}); showReel(state.d.id); };
+  if ($("#revert")) $("#revert").onclick = async () => { await api("/api/revert", {id: state.d.id}); showReel(state.d.id); };
+}
+
+function watch() {
+  clearInterval(poll);
+  poll = setInterval(async () => {
+    const d = await api(`/api/reel?id=${encodeURIComponent(state.d.id)}`);
+    if (d.status.state !== "working") { clearInterval(poll); showReel(state.d.id); }
+    else if (d.status.step !== state.d.status.step) { state.d.status = d.status; render(); }
+  }, 2500);
+}
+
+route();
+</script>
+</body>
+</html>

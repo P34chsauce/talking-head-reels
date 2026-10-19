@@ -7,6 +7,7 @@
   reels preview work/JOB|archive/FILE
                            edit a finished take again with the asset library, into previews/
                            (ready/, archive/ and the ledger are not touched)
+  reels review [--phone]   review page: comment on finished reels, fix cutaways and copy, re-render
   reels status             inbox / ready / failures / heavy queue at a glance
   reels check-copy FILE..  banned-phrase check (exit 1 on any hit)
   reels talking-points     draft riff prompts from the last 7 days of your project (writes to notes)
@@ -32,8 +33,8 @@ def main(argv: list[str]) -> int:
     if cmd == "_transcribe":
         pipeline.stage_transcribe(Path(args[0]))
         return 0
-    if cmd == "_render":
-        pipeline.stage_render(Path(args[0]))
+    if cmd == "_render":  # _render JOB [K ...]: just those clips
+        pipeline.stage_render(Path(args[0]), {int(k) for k in args[1:]} or None)
         return 0
 
     if cmd == "process":
@@ -74,6 +75,10 @@ def main(argv: list[str]) -> int:
             return 2
         print(pipeline.preview(Path(args[0]).resolve()))
         return 0
+
+    if cmd == "review":
+        from .review import main as review
+        return review(args)
 
     if cmd == "status":
         inbox = [p for p in C.INBOX.glob("*") if ingest.is_candidate(p)] if C.INBOX.exists() else []

@@ -129,6 +129,23 @@ described in place and never moved. `bin/reels library` lists the catalogue (`st
 
 *Using extras in the edit is the next step; for now they're catalogued.*
 
+## Reviewing and fixing a reel
+
+```bash
+bin/reels review            # http://127.0.0.1:8790 (private link printed in the terminal)
+bin/reels review --phone    # also on your phone, over your home Wi-Fi
+```
+
+Every reel in `ready/` and `previews/` is listed. Open one to watch it with a timeline of its cutaways.
+- **Comments:** pause where something's off and write what you want ("swap this for the garden", "end a
+  beat earlier", "caption should say commits"). The comment is pinned to that moment.
+- **Direct changes:** swap a cutaway's footage, change which lines it covers, switch full frame and face
+  bubble, remove it or add one, and edit the post text.
+- **Apply:** Claude turns your comments into edits (`.claude/skills/revise-reel`). The same checks as the
+  first edit run, then only that reel re-renders (about 3 minutes).
+- **Keep or go back:** you get a before/after to compare. Keeping it replaces the reel; one in `ready/`
+  syncs to your phone. Every old version is kept in `<job>/review/c<k>/revisions/`.
+
 ## What the pipeline does to each take
 
 | Step | Tool | Notes |
@@ -155,6 +172,7 @@ bin/reels check-copy ready/*.txt  # banned-phrase check; exit 1 on any hit
 bin/reels talking-points [--days 7] [--dry-run]
 bin/reels library [WORDS…]        # list or search the asset library
 bin/reels library --scan          # describe anything new in library/ now
+bin/reels review [--phone]        # review page: comment on reels, fix cutaways and copy, re-render one
 tests/fixtures/make_test_clip.sh /tmp/test.mp4   # synthetic 2-minute take (say + ffmpeg)
 uv run pytest                     # unit tests
 .venv/bin/python tests/bench_alignment.py AUDIO.wav a=words.json …   # compare word-timing accuracy

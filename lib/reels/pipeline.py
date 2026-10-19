@@ -171,9 +171,29 @@ def cutaway_props(clip: dict, ls: list[dict], edited: list[dict], length: float)
     return props, files
 
 
-def stage_render(job: Path) -> None:
+def source_of(meta: dict) -> Path:
+    """The take's video: where the job last saw it, else archived after publishing."""
+    for p in (Path(meta["src"]), C.ARCHIVE / meta["name"]):
+        if p.is_file():
+            return p
+    raise FileNotFoundError(f"source video {meta['name']} is in neither {meta['src']} nor archive/")
+
+
+def line_times(ls: list[dict], edited: list[dict]) -> list[dict]:
+    """Where each kept line sits on the edited clip: what the review page shows and comments map to."""
+    out = []
+    for l in ls:
+        ws = [w for w in edited if l["first"] <= w["i"] <= l["last"]]
+        if ws:
+            out.append({"n": l["n"], "start": ws[0]["start"], "end": ws[-1]["end"],
+                        "text": " ".join(w["w"] for w in ws)})
+    return out
+
+
+def stage_render(job: Path, only: set[int] | None = None) -> None:
+    """Render every clip without a final.mp4, or just the clips in `only` (1-based)."""
     meta = json.loads((job / "job.json").read_text())
-    src = Path(meta["src"])
+    src = source_of(meta)
     words = json.loads((job / "words.json").read_text())
     plan = json.loads((job / "plan.json").read_text())
     ls = json.loads((job / "lines.json").read_text())
@@ -188,7 +208,7 @@ def stage_render(job: Path) -> None:
     for k, clip in enumerate(plan["clips"], 1):
         cdir = job / "clips" / f"c{k}"
         final = cdir / "final.mp4"
-        if final.exists():
+        if (only is not None and k not in only) or (only is None and final.exists()):
             continue
         cdir.mkdir(parents=True, exist_ok=True)
         log(f"clip {k}/{len(plan['clips'])}: {clip['title']}")
@@ -227,6 +247,8 @@ def stage_render(job: Path) -> None:
                                "end": min(hit["start"] + 2.2, length)})
         renderer = "remotion"
         cuts_props, cut_files = cutaway_props(clip, ls, edited, length)
+        (cdir / "timeline.json").write_text(json.dumps({
+            "length": round(length, 3), "lines": line_times(ls, edited), "cutaways": cuts_props}))
         clip_style = style
         if any(v["mode"] == "pip" for v in cuts_props):  # aim the face bubble at this take's face
             face = M.face_box(cdir / "edit.mp4", cdir)

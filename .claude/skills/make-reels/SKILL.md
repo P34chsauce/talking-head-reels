@@ -1,6 +1,6 @@
 ---
 name: make-reels
-description: Editorial brain of the reels pipeline. Given a timestamped transcript of a talking-head recording, write the session notes, pick 1-5 standalone 30-60 s Reel clips, choose a few emojis and write the post caption + hashtags for each. Invoked headless by lib/reels/select.py via `claude -p`; returns JSON only.
+description: Editorial brain of the reels pipeline. Given a timestamped transcript of a talking-head recording (and optionally a library of footage), write the session notes, pick 1-5 standalone 30-60 s Reel clips, choose cutaways and a few emojis, and write the post caption + hashtags for each. Invoked headless by lib/reels/select.py via `claude -p`; returns JSON only.
 ---
 
 # make-reels
@@ -90,6 +90,36 @@ option" → "I had the delete option"), "coating" → "coding" when they're talk
 place or product name. 1-3 words per fix, `wrong` exactly as it appears in that line. Only fix what you're
 confident about; the audio is never changed.
 
+## Cutaways: `visuals`
+
+When the prompt has a `## Footage you can cut to` section, the reel can cut away from the speaker to
+that footage while they keep talking (their voice and the captions carry on). Without that section,
+`visuals` is always `[]`.
+
+Each footage entry has an id, its kind (`broll` camera footage, `screen` recording, `photo`,
+`screenshot`), length, shape, quality, a description, the best `moments` (seconds into the video),
+known `issues` and `privacy` notes. "recorded with this take" means it was filmed alongside it.
+
+A cutaway is `{"from_line": 14, "to_line": 15, "asset": "<id>", "at": 3.5, "mode": "full", "why": "..."}`:
+the footage is on screen from the start of `from_line` until the next kept line after `to_line`.
+
+- **Cut where the words point at something the viewer could see.** "I was on the treadmill desk",
+  "this is the food screen", "the whiteboard was full" → show it. A cutaway illustrates the line it's
+  on; never cut to footage that doesn't match what's being said, just for variety.
+- **Keep the face where the feeling is.** Confessions, the turn, the payoff and a spoken ask land
+  harder on the speaker's face. A strong hook usually stays on the face, unless the hook is about
+  something visual.
+- **0-3 cutaways per clip, each 1.5-6 s** (typically 1-2 lines). Leave the speaker on screen between them.
+  None is fine: never force footage into a clip it doesn't fit.
+- `at`: where in a video to start (use a listed moment, a little before it). It must leave enough
+  footage for the lines it covers; the validator tells you if it doesn't. Stills use `at: 0`.
+- `mode`: `full` (the footage fills the frame: B-roll, photos) or `pip` (a card at the top with the
+  speaker still visible below: best for `screen` and `screenshot`, so the viewer sees the app *and*
+  the person talking about it).
+- Prefer footage "recorded with this take" when it fits equally well. Skip `poor` quality, and skip
+  footage whose `privacy` note would be on screen in the part you use.
+- Don't use the same footage twice in one clip.
+
 ## Emojis
 
 0-2 per clip, only where they add meaning. Anchor each to a word
@@ -127,7 +157,7 @@ appears in the transcript.
 
 `notes_md`: a Markdown session note for the speaker, starting with `# <title>`. Sections:
 `## Summary` (2-3 sentences), `## Useful ideas` (bullets), `## Quotable lines` (exact quotes with
-`[mm:ss]` timestamps), `## Clips` (one bullet per clip: title, lines, any cut lines and why, the hook, why someone would send it),
+`[mm:ss]` timestamps), `## Clips` (one bullet per clip: title, lines, any cut lines and why, the hook, any cutaways and why, why someone would send it),
 `## Left on the floor`
 (good material that didn't make a clip, with timestamps, for next time), `## Next recording` (2-4 bullets
 of coaching against "What a good reel is": e.g. the strongest line came 20 s into a story, so open with it

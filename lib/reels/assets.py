@@ -317,3 +317,55 @@ def scan_library(wait: bool = True, ask=None, log=print) -> list[tuple[Path, Bas
         except Exception as exc:  # noqa: BLE001 — one bad file must not stop the scan
             failed.append((p, exc))
     return failed
+
+
+# --- for the edit ---------------------------------------------------------------------------
+
+MENU_MAX = 30  # assets offered to the clip planner per recording
+
+
+def menu(when: dt.datetime | None) -> list[dict]:
+    """What the clip planner may cut to: extras recorded around the take first, then the rest of
+    the library, newest first. Poor-quality assets are left out."""
+    usable = [e for e in entries() if e["quality"] != "poor"]
+    linked = near(when) if when else []
+    ids = {e["id"] for e in linked}
+    rest = sorted((e for e in usable if e["id"] not in ids), key=lambda e: e["recorded_at"], reverse=True)
+    return [e for e in linked if e["quality"] != "poor"] + rest[: max(0, MENU_MAX - len(linked))]
+
+
+def menu_text(assets: list[dict], linked: set[str] = frozenset()) -> str:
+    """One block per asset, in the words the planner needs to match footage to lines."""
+    out = []
+    for e in assets:
+        length = f"{e['duration']:.1f}s video" if e["duration"] else "still image"
+        head = f"{e['id']} | {e['kind']} | {length} | {e['orientation']} | quality {e['quality']}"
+        if e["id"] in linked:
+            head += " | recorded with this take"
+        lines = [head, f"  {e['description']}"]
+        if e["moments"]:
+            lines.append("  moments: " + "; ".join(f"{m['t']:.1f}s {m['what']}" for m in e["moments"]))
+        if e["issues"]:
+            lines.append("  issues: " + "; ".join(e["issues"]))
+        if e["privacy"]:
+            lines.append("  privacy: " + "; ".join(e["privacy"]))
+        out.append("\n".join(lines))
+    return "\n\n".join(out)
+
+
+def render_source(e: dict) -> Path:
+    """A file Remotion renders quickly and predictably: stills as their JPEG proxy; video as
+    upright H.264, 30 fps constant, at most 1080 px on the short side, no sound. Cached."""
+    adir = C.WORK / "assets" / e["id"]
+    adir.mkdir(parents=True, exist_ok=True)
+    if e["duration"] is None:
+        img = adir / "image.jpg"
+        return img if img.exists() else make_proxy(path_of(e), adir)
+    out = adir / "render.mp4"
+    if not out.exists():
+        tmp = adir / "render.tmp.mp4"
+        M.run([C.FFMPEG, "-hide_banner", "-y", "-i", path_of(e), "-an", "-vf",
+               "scale='if(gt(iw,ih),-2,min(1080,iw))':'if(gt(iw,ih),min(1080,ih),-2)',fps=30",
+               "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", tmp])
+        tmp.replace(out)
+    return out

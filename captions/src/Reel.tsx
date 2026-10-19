@@ -54,12 +54,15 @@ loadFont({
 });
 
 // Gentle motion for reflective storytelling: a short fade + lift, no bounce.
-const PhraseView: React.FC<{ phrase: Phrase; t: number; style: ReelProps["style"]; fps: number }> = ({
-  phrase,
-  t,
-  style,
-  fps,
-}) => {
+// `backed`: footage is on screen, so the captions get a dark backing; over an app screen the outline
+// alone blurs into the app's own text.
+const PhraseView: React.FC<{
+  phrase: Phrase;
+  t: number;
+  style: ReelProps["style"];
+  fps: number;
+  backed: boolean;
+}> = ({ phrase, t, style, fps, backed }) => {
   const since = (t - phrase.start) * fps;
   const opacity = interpolate(since, [0, 4], [0, 1], { extrapolateRight: "clamp" });
   const lift = interpolate(since, [0, 6], [14, 0], { extrapolateRight: "clamp" });
@@ -78,6 +81,9 @@ const PhraseView: React.FC<{ phrase: Phrase; t: number; style: ReelProps["style"
         fontWeight: 700,
         fontSize: style.fontSize,
         lineHeight: 1.15,
+        ...(backed
+          ? { backgroundColor: "rgba(28,28,28,0.62)", borderRadius: 32, padding: "18px 12px", left: 70, right: 70 }
+          : {}),
       }}
     >
       {phrase.words.map((w, i) => {
@@ -236,7 +242,15 @@ export const Reel: React.FC<ReelProps> = ({ video, phrases, emojis, visuals = []
         .map((e, i) => (
           <EmojiView key={i} e={e} t={t} frame={frame} fps={fps} y={style.captionCenterY} />
         ))}
-      {phrase ? <PhraseView phrase={phrase} t={t} style={style} fps={fps} /> : null}
+      {phrase ? (
+        <PhraseView
+          phrase={phrase}
+          t={t}
+          style={style}
+          fps={fps}
+          backed={visuals.some((v) => t >= v.start && t < v.end)}
+        />
+      ) : null}
     </AbsoluteFill>
   );
 };

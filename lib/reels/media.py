@@ -217,5 +217,33 @@ def mux(video: Path, wav: Path, out: Path) -> None:
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", out])
 
 
+FACE_SRC = C.ROOT / "lib" / "face.swift"
+FACE_BIN = C.MODELS / "bin" / "face"
+
+
+def face_box(video: Path, work: Path, n: int = 5) -> dict | None:
+    """Median face position in `video` (centre x, y and width as fractions of the frame), from n
+    frames, via Apple Vision. None when there's no Swift toolchain or no face is found."""
+    if not FACE_BIN.exists() or FACE_BIN.stat().st_mtime < FACE_SRC.stat().st_mtime:
+        FACE_BIN.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            run(["swiftc", "-O", FACE_SRC, "-o", FACE_BIN])
+        except (OSError, RuntimeError):
+            return None
+    d = duration(video)
+    shots = []
+    for k in range(n):
+        out = work / f"face{k}.jpg"
+        frame(video, d * (k + 0.5) / n, out)
+        shots.append(out)
+    found = [json.loads(l) for l in run([FACE_BIN, *shots]).stdout.splitlines() if l.strip() != "null"]
+    for p in shots:
+        p.unlink(missing_ok=True)
+    if not found:
+        return None
+    mid = lambda key: sorted(f[key] for f in found)[len(found) // 2]
+    return {"x": mid("x"), "y": mid("y"), "w": mid("w")}
+
+
 def frame(src: Path, t: float, out: Path) -> None:
     run([C.FFMPEG, "-hide_banner", "-y", "-ss", f"{t:.2f}", "-i", src, "-frames:v", "1", out])

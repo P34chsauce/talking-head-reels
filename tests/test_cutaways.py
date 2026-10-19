@@ -131,3 +131,14 @@ def test_missing_asset_is_skipped_at_render(monkeypatch):
     words = take(n_lines=4)
     props, files = P.cutaway_props({"visuals": [visual(from_line=2, to_line=2)]}, S.lines(words), words, 20.0)
     assert props == [] and files == []
+
+
+def test_face_box_finds_no_face_in_a_test_pattern(tmp_path):
+    import shutil
+    import pytest
+    from reels import media as M
+    from test_assets import make_video
+    if not shutil.which("swiftc"):
+        pytest.skip("no Swift toolchain: the face bubble falls back to style.faceCenter")
+    assert M.face_box(make_video(tmp_path / "pattern.mp4", secs=2), tmp_path) is None
+    assert not list(tmp_path.glob("face*.jpg"))  # sampled frames are cleaned up

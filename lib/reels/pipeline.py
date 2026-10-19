@@ -227,9 +227,14 @@ def stage_render(job: Path) -> None:
                                "end": min(hit["start"] + 2.2, length)})
         renderer = "remotion"
         cuts_props, cut_files = cutaway_props(clip, ls, edited, length)
+        clip_style = style
+        if any(v["mode"] == "pip" for v in cuts_props):  # aim the face bubble at this take's face
+            face = M.face_box(cdir / "edit.mp4", cdir)
+            if face:
+                clip_style = {**style, "faceCenter": [face["x"], face["y"]], "faceWidth": face["w"]}
         try:
             props = {"durationInFrames": max(1, round(length * C.FPS)), "fps": C.FPS,
-                     "phrases": phrases, "emojis": emojis, "style": style, "visuals": cuts_props}
+                     "phrases": phrases, "emojis": emojis, "style": clip_style, "visuals": cuts_props}
             M.render_remotion(cdir / "edit.mp4", props, cdir / "captioned.mp4", cut_files)
             M.mux(cdir / "captioned.mp4", cdir / "norm.wav", cdir / "final.tmp.mp4")
         except Exception as e:  # fall back to libass, keep going

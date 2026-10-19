@@ -15,7 +15,8 @@ import { loadFont } from "@remotion/fonts";
 type Word = { w: string; start: number; end: number };
 type Phrase = { start: number; end: number; words: Word[] };
 type Emoji = { emoji: string; start: number; end: number };
-// A cutaway: footage over the talking head (full) or in a card above the captions (pip), seconds.
+// A cutaway, in seconds: footage over the talking head (full), or footage full frame with the
+// speaker kept in a round face bubble in the corner (pip).
 type Visual = {
   file: string;
   kind: "video" | "image";
@@ -40,6 +41,9 @@ export type ReelProps = {
     outlineColor: string;
     outlineWidth: number;
     captionCenterY: number;
+    faceCenter?: [number, number]; // where the face sits in the talking-head frame, 0-1
+    faceBubble?: number; // bubble diameter, px
+    faceWidth?: number; // the face's width as a fraction of the frame (measured per clip)
   };
 };
 
@@ -134,8 +138,49 @@ const EmojiView: React.FC<{ e: Emoji; t: number; frame: number; fps: number; y: 
 
 const FADE = 4; // frames: a quick dissolve reads as an edit, a hard cut can look like a glitch
 
+// The speaker's own video, cropped round on the face, kept in sync with the main clip.
+const FaceBubble: React.FC<{ video: string; from: number; style: ReelProps["style"]; opacity: number }> = ({
+  video,
+  from,
+  style,
+  opacity,
+}) => {
+  const size = style.faceBubble ?? 300;
+  const [fx, fy] = style.faceCenter ?? [0.5, 0.3];
+  const w = (size * 0.6) / (style.faceWidth ?? 0.25); // zoom so the face fills ~60% of the bubble
+  const h = (w * 1920) / 1080;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        right: 48,
+        bottom: "7%",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        overflow: "hidden",
+        border: "6px solid white",
+        boxShadow: "0 12px 36px rgba(0,0,0,0.45)",
+        opacity,
+      }}
+    >
+      <OffthreadVideo
+        src={staticFile(video)}
+        trimBefore={from}
+        muted
+        style={{ position: "absolute", width: w, height: h, left: size / 2 - fx * w, top: size / 2 - fy * h }}
+      />
+    </div>
+  );
+};
+
 // Inside its <Sequence>, so frame 0 is the cutaway's first frame.
-const VisualView: React.FC<{ v: Visual; fps: number }> = ({ v, fps }) => {
+const VisualView: React.FC<{ v: Visual; fps: number; video: string; style: ReelProps["style"] }> = ({
+  v,
+  fps,
+  video,
+  style,
+}) => {
   const frame = useCurrentFrame();
   const total = Math.max(1, Math.round((v.end - v.start) * fps));
   const opacity = interpolate(frame, [0, FADE, total - FADE, total], [0, 1, 1, 0], {
@@ -158,32 +203,13 @@ const VisualView: React.FC<{ v: Visual; fps: number }> = ({ v, fps }) => {
         style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${zoom})` }}
       />
     );
-  if (v.mode === "full") {
-    return <AbsoluteFill style={{ opacity, backgroundColor: "black" }}>{media}</AbsoluteFill>;
-  }
-  // pip: a rounded card in the upper half, clear of the captions; tall phone screens get a
-  // narrower card so they stay readable without covering the face entirely.
-  const width = v.aspect < 0.7 ? 46 : 84;
-  const lift = interpolate(frame, [0, FADE * 2], [24, 0], { extrapolateRight: "clamp" });
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: "6%",
-        left: `${(100 - width) / 2}%`,
-        width: `${width}%`,
-        aspectRatio: `${Math.max(v.aspect, 0.4)}`,
-        maxHeight: "56%",
-        borderRadius: 36,
-        overflow: "hidden",
-        boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
-        border: "4px solid rgba(255,255,255,0.9)",
-        opacity,
-        transform: `translateY(${lift}px)`,
-      }}
-    >
+    <AbsoluteFill style={{ opacity, backgroundColor: "black" }}>
       {media}
-    </div>
+      {v.mode === "pip" ? (
+        <FaceBubble video={video} from={Math.round(v.start * fps)} style={style} opacity={opacity} />
+      ) : null}
+    </AbsoluteFill>
   );
 };
 
@@ -202,7 +228,7 @@ export const Reel: React.FC<ReelProps> = ({ video, phrases, emojis, visuals = []
           durationInFrames={Math.max(1, Math.round((v.end - v.start) * fps))}
           layout="none"
         >
-          <VisualView v={v} fps={fps} />
+          <VisualView v={v} fps={fps} video={video} style={style} />
         </Sequence>
       ))}
       {emojis

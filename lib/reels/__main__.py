@@ -4,6 +4,9 @@
   reels retry [FILE]       clear error logs and process again
   reels reprocess archive/FILE [--retranscribe]
                            run a finished take again (old reels/notes kept in work/<job>/previous/)
+  reels preview work/JOB|archive/FILE
+                           edit a finished take again with the asset library, into previews/
+                           (ready/, archive/ and the ledger are not touched)
   reels status             inbox / ready / failures / heavy queue at a glance
   reels check-copy FILE..  banned-phrase check (exit 1 on any hit)
   reels talking-points     draft riff prompts from the last 7 days of your project (writes to notes)
@@ -63,6 +66,13 @@ def main(argv: list[str]) -> int:
             return 2
         prev = pipeline.reprocess(Path(args[0]).resolve(), "--retranscribe" in args)
         print(f"previous run kept in {prev}; {Path(args[0]).name} is back in inbox/")
+        return 0
+
+    if cmd == "preview":
+        if not args:
+            print("usage: reels preview work/JOB|archive/FILE")
+            return 2
+        print(pipeline.preview(Path(args[0]).resolve()))
         return 0
 
     if cmd == "status":

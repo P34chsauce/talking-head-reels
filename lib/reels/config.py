@@ -42,6 +42,7 @@ SETTINGS = _json("settings.json")
 NOTES_DIR = _path(SETTINGS["notes_dir"])  # session notes and talking points (Markdown)
 PROJECT_REPO = _path(SETTINGS["project_repo"]) if SETTINGS.get("project_repo") else None  # read-only
 PROJECT_BRANCH = SETTINGS.get("project_branch", "main")
+CUTAWAYS = SETTINGS.get("cutaways", True)  # false: talking head only, the library is never offered
 
 # Homebrew's default ffmpeg lacks libass/drawtext; ffmpeg-full is keg-only.
 FFMPEG = os.environ.get("REELS_FFMPEG", "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg")

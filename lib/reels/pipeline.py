@@ -130,6 +130,47 @@ def apply_caption_fixes(edited: list[dict], ls: list[dict], fixes: list[dict]) -
     return out
 
 
+def offered_footage(meta: dict) -> tuple[list[dict], str]:
+    """The library the clip planner may cut to, extras recorded with this take first."""
+    if not C.CUTAWAYS:
+        return [], ""
+    when = dt.datetime.fromisoformat(meta["recorded_at"]) if meta.get("recorded_at") else None
+    assets = A.menu(when)
+    linked = {e["id"] for e in A.near(when)} if when else set()
+    return assets, A.menu_text(assets, linked)
+
+
+def cutaway_props(clip: dict, ls: list[dict], edited: list[dict], length: float) -> tuple[list[dict], list]:
+    """Line ranges -> times on the edited clip, plus the files Remotion needs."""
+    catalogue = {e["id"]: e for e in A.load().values()}
+    props, files = [], []
+    for n, v in enumerate(clip.get("visuals") or [], 1):
+        e = catalogue.get(v["asset"])
+        if not e or not A.path_of(e).exists():
+            log(f"cutaway {v['asset']} skipped: not in the library any more")
+            continue
+        a, b = ls[v["from_line"] - 1], ls[v["to_line"] - 1]
+        inside = [w for w in edited if a["first"] <= w["i"] <= b["last"]]
+        if not inside:
+            continue
+        start = max(0.0, inside[0]["start"] - 0.1)
+        after = next((w for w in edited if w["i"] > b["last"]), None)
+        end = after["start"] - 0.05 if after else length
+        at = float(v["at"])
+        if e["duration"] is not None:  # never run past the end of the footage
+            at = max(0.0, min(at, e["duration"] - (end - start)))
+            end = min(end, start + e["duration"] - at)
+        if end - start < 0.5:
+            continue
+        src = A.render_source(e)
+        name = f"cut{n}{src.suffix}"
+        files.append((src, name))
+        props.append({"file": name, "kind": "image" if e["duration"] is None else "video",
+                      "start": round(start, 3), "end": round(end, 3), "at": round(at, 3), "mode": v["mode"],
+                      "aspect": round(e["width"] / e["height"], 4)})
+    return props, files
+
+
 def stage_render(job: Path) -> None:
     meta = json.loads((job / "job.json").read_text())
     src = Path(meta["src"])
@@ -185,13 +226,19 @@ def stage_render(job: Path) -> None:
                 emojis.append({"emoji": e["emoji"], "start": max(0.0, hit["start"] - 0.1),
                                "end": min(hit["start"] + 2.2, length)})
         renderer = "remotion"
+        cuts_props, cut_files = cutaway_props(clip, ls, edited, length)
+        clip_style = style
+        if any(v["mode"] == "pip" for v in cuts_props):  # aim the face bubble at this take's face
+            face = M.face_box(cdir / "edit.mp4", cdir)
+            if face:
+                clip_style = {**style, "faceCenter": [face["x"], face["y"]], "faceWidth": face["w"]}
         try:
             props = {"durationInFrames": max(1, round(length * C.FPS)), "fps": C.FPS,
-                     "phrases": phrases, "emojis": emojis, "style": style}
-            M.render_remotion(cdir / "edit.mp4", props, cdir / "captioned.mp4")
+                     "phrases": phrases, "emojis": emojis, "style": clip_style, "visuals": cuts_props}
+            M.render_remotion(cdir / "edit.mp4", props, cdir / "captioned.mp4", cut_files)
             M.mux(cdir / "captioned.mp4", cdir / "norm.wav", cdir / "final.tmp.mp4")
         except Exception as e:  # fall back to libass, keep going
-            log(f"Remotion failed, using ASS fallback: {str(e)[-400:]}")
+            log(f"Remotion failed, using ASS fallback (no emojis, no cutaways): {str(e)[-400:]}")
             renderer = "ass"
             M.render_ass(cdir / "edit.mp4", cdir / "norm.wav", phrases, style, cdir / "final.tmp.mp4")
         lufs = M.measure_lufs(cdir / "final.tmp.mp4")
@@ -200,6 +247,8 @@ def stage_render(job: Path) -> None:
             "title": clip["title"], "renderer": renderer, "duration": round(dur, 2),
             "lufs": lufs, "segments": len(keep), "source_range": [start, end],
             "swears_cut": sum(1 for w in cw if W.is_swear(w["w"], swears)),
+            "cutaways": [{k: v[k] for k in ("file", "start", "end", "at", "mode")} for v in cuts_props]
+            if renderer == "remotion" else [],
         }, indent=2))
         os.replace(cdir / "final.tmp.mp4", final)
         log(f"clip {k}: {dur:.1f}s, {lufs:.1f} LUFS, {len(keep)} segments, captions via {renderer}")
@@ -272,8 +321,9 @@ def process(src: Path, wait: bool = True) -> str:
             result = add_extra(src, sha, " ".join(w["w"] for w in words))
             shutil.rmtree(job)
             return result
-        log("choosing clips (claude -p, make-reels skill)")
-        plan, ls = S.plan_clips(words, meta)
+        assets, footage = offered_footage(meta)
+        log(f"choosing clips (claude -p, make-reels skill; {len(assets)} cutaway(s) offered)")
+        plan, ls = S.plan_clips(words, meta, assets=assets, footage=footage)
         (job / "lines.json").write_text(json.dumps(ls))
         (job / "plan.json").write_text(json.dumps(plan, indent=2, ensure_ascii=False))
 
@@ -365,6 +415,49 @@ def reprocess(archived: Path, retranscribe: bool = False) -> Path:
     dest = C.INBOX / archived.name
     shutil.move(archived, dest)
     return prev
+
+
+PREVIEWS = C.ROOT / "previews"
+
+
+def preview(target: Path) -> Path:
+    """Edit a finished take again with today's rules and asset library, into previews/<job>-<time>/.
+
+    For trying the editor out on old recordings: ready/, archive/, notes and the ledger are never
+    touched, and the transcript is reused. `target` is a work/<job> folder or the archived take.
+    """
+    if target.is_dir():
+        job = target
+    else:
+        rec = ingest.ledger().get(ingest.sha256(target))
+        if not rec:
+            raise SystemExit(f"{target.name} isn't in the ledger; give its work/<job> folder instead")
+        job = C.WORK / rec["job"]
+    meta = json.loads((job / "job.json").read_text())
+    src = next((p for p in (Path(meta["src"]), C.ARCHIVE / meta["name"], target) if p.is_file()), None)
+    if src is None:
+        raise SystemExit(f"can't find the source video for {job.name}")
+    meta = {**meta, "src": str(src)}
+    meta.setdefault("recorded_at", A.recorded_at(src).isoformat(timespec="seconds"))
+    out = PREVIEWS / f"{job.name}-{dt.datetime.now():%Y%m%d-%H%M%S}"
+    out.mkdir(parents=True)
+    (out / "job.json").write_text(json.dumps(meta, indent=2))
+    for name in ("words.json", "silence.v3", "audio16k.wav"):
+        if (job / name).exists():
+            shutil.copy2(job / name, out / name)
+    words = json.loads((out / "words.json").read_text())
+    assets, footage = offered_footage(meta)
+    log(f"preview {job.name}: choosing clips ({len(assets)} cutaway(s) offered)")
+    plan, ls = S.plan_clips(words, meta, assets=assets, footage=footage)
+    (out / "lines.json").write_text(json.dumps(ls))
+    (out / "plan.json").write_text(json.dumps(plan, indent=2, ensure_ascii=False))
+    heavy(f"preview {job.name}", "_render", str(out))
+    for k, clip in enumerate(plan["clips"], 1):
+        name = f"{k}-{slugify(clip['title'], 5)}"
+        shutil.copy2(out / "clips" / f"c{k}" / "final.mp4", out / f"{name}.mp4")
+        (out / f"{name}.txt").write_text(post_text(clip))
+    log(f"preview: {len(plan['clips'])} reel(s) in {out}")
+    return out
 
 
 def fail(src: Path, exc: BaseException) -> None:

@@ -64,7 +64,7 @@ SCHEMA = {
         "clips": {"type": "array", "minItems": 1, "maxItems": 5, "items": {
             "type": "object",
             "required": ["title", "first_line", "last_line", "why", "emojis", "cut_lines", "caption_fixes",
-                         "caption", "hashtags"],
+                         "visuals", "caption", "hashtags"],
             "properties": {
                 "title": {"type": "string"},
                 "first_line": {"type": "integer"},
@@ -79,6 +79,12 @@ SCHEMA = {
                     "type": "object", "required": ["line", "wrong", "right"],
                     "properties": {"line": {"type": "integer"}, "wrong": {"type": "string"},
                                    "right": {"type": "string"}}}},
+                "visuals": {"type": "array", "items": {
+                    "type": "object", "required": ["from_line", "to_line", "asset", "at", "mode", "why"],
+                    "properties": {"from_line": {"type": "integer"}, "to_line": {"type": "integer"},
+                                   "asset": {"type": "string"}, "at": {"type": "number"},
+                                   "mode": {"type": "string", "enum": ["full", "pip"]},
+                                   "why": {"type": "string"}}}},
                 "caption": {"type": "string"},
                 "hashtags": {"type": "array", "minItems": 3, "maxItems": 5,
                              "items": {"type": "string", "pattern": "^#[a-z0-9_]+$"}},
@@ -163,8 +169,47 @@ def length_options(words, ls, fl, ll) -> str:
     return "Nearby ranges that fit: " + ", ".join(f"L{a}-L{b} ({sec:.1f}s)" for _, _, a, b, sec in best) + "."
 
 
-def validate(plan: dict, words: list[dict], ls: list[dict]) -> list[str]:
+MIN_VISUAL_S, MAX_VISUAL_S = 1.0, 7.0  # shorter reads as a glitch; longer and the viewer loses the speaker
+
+
+def validate_visuals(tag: str, c: dict, words, ls, assets: dict[str, dict]) -> list[str]:
+    errs, fl, ll = [], c["first_line"], c["last_line"]
+    cut = set(c.get("cut_lines") or [])
+    prev_to = 0
+    for v in sorted(c.get("visuals") or [], key=lambda v: v["from_line"]):
+        a, b, vt = v["from_line"], v["to_line"], f"{tag}: cutaway to {v['asset']} on L{v['from_line']}-L{v['to_line']}"
+        e = assets.get(v["asset"])
+        if e is None:
+            errs.append(f"{vt}: {v['asset']!r} is not one of the offered footage ids" if assets
+                        else f"{vt}: no footage was offered, so visuals must be []")
+            continue
+        if not (fl <= a <= b <= ll):
+            errs.append(f"{vt}: must lie inside the clip L{fl}-L{ll}")
+            continue
+        if a in cut or b in cut:
+            errs.append(f"{vt}: starts or ends on a cut line; start and end on kept lines")
+            continue
+        if a <= prev_to:
+            errs.append(f"{vt}: overlaps the previous cutaway (which runs to L{prev_to})")
+        prev_to = b
+        secs = span_seconds(words, ls, a, b, [n for n in cut if a < n < b])
+        if secs < MIN_VISUAL_S:
+            errs.append(f"{vt}: only ~{secs:.1f}s on screen; a cutaway needs at least {MIN_VISUAL_S:.0f}s")
+        elif secs > MAX_VISUAL_S:
+            errs.append(f"{vt}: ~{secs:.1f}s on screen; keep a cutaway under {MAX_VISUAL_S:.0f}s (cover fewer lines)")
+        if e["duration"] is not None:
+            if v["at"] < 0 or v["at"] >= e["duration"]:
+                errs.append(f"{vt}: `at` {v['at']}s is outside the {e['duration']:.1f}s video")
+            elif v["at"] + secs > e["duration"] + 0.1:
+                errs.append(f"{vt}: needs ~{secs:.1f}s of footage from {v['at']}s but the video ends at "
+                            f"{e['duration']:.1f}s; start earlier (at <= {max(0, e['duration'] - secs):.1f}) "
+                            "or cover fewer lines")
+    return errs
+
+
+def validate(plan: dict, words: list[dict], ls: list[dict], assets: dict[str, dict] | None = None) -> list[str]:
     errs = []
+    assets = assets or {}
     rules = load_rules()
     used = []
     for k, c in enumerate(plan["clips"], 1):
@@ -206,6 +251,7 @@ def validate(plan: dict, words: list[dict], ls: list[dict]) -> list[str]:
                             "stops recommending to non-followers; use one plain ask instead")
             else:
                 errs.append(f"{tag}: caption/hashtags contain banned phrase {h.match!r}")
+        errs += validate_visuals(tag, c, words, ls, assets)
         for e in c["emojis"]:
             if not (fl <= e["line"] <= ll) or e["line"] in cut:
                 errs.append(f"{tag}: emoji anchor L{e['line']} is not on a kept line of the clip")
@@ -214,32 +260,43 @@ def validate(plan: dict, words: list[dict], ls: list[dict]) -> list[str]:
     return errs
 
 
-def build_prompt(ls: list[dict], meta: dict, feedback: list[str] | None = None) -> str:
+def build_prompt(ls: list[dict], meta: dict, feedback: list[str] | None = None, footage: str = "") -> str:
     total = sum(l["speech"] for l in ls)
     p = (f"/make-reels\n\n## Channel\n\n{C.channel()}\n\n## Recording\n\n{meta['name']}, recorded {meta['date']}, "
          f"{meta['duration']:.0f}s long, ~{total:.0f}s of speech.\n"
          f"Transcript ({len(ls)} lines):\n\n{render_lines(ls)}\n")
+    if footage:
+        p += f"\n## Footage you can cut to\n\n{footage}\n"
     if feedback:
         p += ("\nYour previous plan was rejected by the validator. Fix every point and return a full "
               "new plan:\n" + "\n".join(f"- {f}" for f in feedback) + "\n")
     return p
 
 
-def plan_clips(words: list[dict], meta: dict, ask=ask_claude) -> tuple[dict, list[dict]]:
+def plan_clips(words: list[dict], meta: dict, ask=ask_claude, assets: list[dict] | None = None,
+               footage: str = "") -> tuple[dict, list[dict]]:
+    """`assets` are the catalogue entries offered as cutaways, `footage` their menu text."""
+    by_id = {e["id"]: e for e in assets or []}
     ls = lines(words)
     total = sum(l["speech"] for l in ls)
     if total < C.CLIP_MIN_S:
         raise PermanentError(f"only {total:.0f}s of speech found; a clip needs {C.CLIP_MIN_S:.0f}s")
     feedback = None
     for attempt in range(1, 4):
-        plan = ask(build_prompt(ls, meta, feedback))
-        feedback = validate(plan, words, ls)
+        plan = ask(build_prompt(ls, meta, feedback, footage))
+        feedback = validate(plan, words, ls, by_id)
         if not feedback:
             print(f"plan accepted on attempt {attempt}: {len(plan['clips'])} clip(s)", flush=True)
             return plan, ls
         print(f"plan attempt {attempt} rejected:\n  " + "\n  ".join(feedback), flush=True)
-    # Keep the clips that pass on their own rather than failing the whole recording.
-    good = [c for c in plan["clips"] if not validate({**plan, "clips": [c]}, words, ls)]
+    # Keep the clips that pass on their own rather than failing the whole recording; a clip whose
+    # only problem is its cutaways keeps going without them.
+    good = []
+    for c in plan["clips"]:
+        if not validate({**plan, "clips": [c]}, words, ls, by_id):
+            good.append(c)
+        elif c.get("visuals") and not validate({**plan, "clips": [{**c, "visuals": []}]}, words, ls, by_id):
+            good.append({**c, "visuals": []})
     good = [c for i, c in enumerate(good)
             if not any(c["first_line"] <= o["last_line"] and c["last_line"] >= o["first_line"] for o in good[:i])]
     if good:

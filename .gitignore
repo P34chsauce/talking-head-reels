@@ -4,6 +4,7 @@ library/
 work/
 ready/
 archive/
+previews/
 *.mp4
 *.mov
 *.wav

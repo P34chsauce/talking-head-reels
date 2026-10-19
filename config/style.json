@@ -10,5 +10,7 @@
   "phraseBreakGapS": 0.45,
   "maxEmojisPerClip": 2,
   "captionCenterY": 0.68,
-  "swearMode": "cut"
+  "swearMode": "cut",
+  "faceCenter": [0.5, 0.4],
+  "faceBubble": 300
 }

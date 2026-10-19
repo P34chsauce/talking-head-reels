@@ -184,10 +184,11 @@ def measure_lufs(src: Path) -> float:
 REMOTION_DIR = C.CAPTIONS
 
 
-def render_remotion(video: Path, props: dict, out: Path) -> None:
+def render_remotion(video: Path, props: dict, out: Path, extra: list[tuple[Path, str]] = ()) -> None:
+    """`extra`: (source file, name in the public dir) for cutaway footage the props refer to."""
     pub = out.parent / "public"
     pub.mkdir(exist_ok=True)
-    for f, target in ((video, pub / "clip.mp4"), (C.FONT, pub / C.FONT.name)):
+    for f, target in ((video, pub / "clip.mp4"), (C.FONT, pub / C.FONT.name), *((s, pub / n) for s, n in extra)):
         if target.exists():
             target.unlink()
         try:
@@ -214,6 +215,34 @@ def render_ass(video: Path, wav: Path, phrases: list[dict], style: dict, out: Pa
 def mux(video: Path, wav: Path, out: Path) -> None:
     run([C.FFMPEG, "-hide_banner", "-y", "-i", video, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-shortest", out])
+
+
+FACE_SRC = C.ROOT / "lib" / "face.swift"
+FACE_BIN = C.MODELS / "bin" / "face"
+
+
+def face_box(video: Path, work: Path, n: int = 5) -> dict | None:
+    """Median face position in `video` (centre x, y and width as fractions of the frame), from n
+    frames, via Apple Vision. None when there's no Swift toolchain or no face is found."""
+    if not FACE_BIN.exists() or FACE_BIN.stat().st_mtime < FACE_SRC.stat().st_mtime:
+        FACE_BIN.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            run(["swiftc", "-O", FACE_SRC, "-o", FACE_BIN])
+        except (OSError, RuntimeError):
+            return None
+    d = duration(video)
+    shots = []
+    for k in range(n):
+        out = work / f"face{k}.jpg"
+        frame(video, d * (k + 0.5) / n, out)
+        shots.append(out)
+    found = [json.loads(l) for l in run([FACE_BIN, *shots]).stdout.splitlines() if l.strip() != "null"]
+    for p in shots:
+        p.unlink(missing_ok=True)
+    if not found:
+        return None
+    mid = lambda key: sorted(f[key] for f in found)[len(found) // 2]
+    return {"x": mid("x"), "y": mid("y"), "w": mid("w")}
 
 
 def frame(src: Path, t: float, out: Path) -> None:

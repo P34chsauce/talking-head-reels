@@ -103,9 +103,13 @@ known `issues` and `privacy` notes. "recorded with this take" means it was filme
 A cutaway is `{"from_line": 14, "to_line": 15, "asset": "<id>", "at": 3.5, "mode": "full", "why": "..."}`:
 the footage is on screen from the start of `from_line` until the next kept line after `to_line`.
 
-- **Cut where the words point at something the viewer could see.** "I was on the treadmill desk",
-  "this is the food screen", "the whiteboard was full" → show it. A cutaway illustrates the line it's
-  on; never cut to footage that doesn't match what's being said, just for variety.
+- **Cut where the words name something the footage shows.** Literal ("this is the food screen", "the
+  whiteboard was full") or a topic the footage plainly illustrates: "how your mood correlates with your
+  movement, with your diet" → the treadmill clip, then the food-logging recording; "the app pulls in
+  all your data" → the app's home screen; "I went outside" → the garden. A cutaway illustrates the line
+  it's on; never cut to footage that doesn't match what's being said just for variety.
+- **Use the footage that fits.** A 40-60 s clip that never changes picture loses viewers; when the
+  library has footage matching 2-3 moments in the clip, use them. When it matches nothing, use nothing.
 - **Keep the face where the feeling is.** Confessions, the turn, the payoff and a spoken ask land
   harder on the speaker's face. A strong hook usually stays on the face, unless the hook is about
   something visual.
@@ -113,9 +117,9 @@ the footage is on screen from the start of `from_line` until the next kept line 
   None is fine: never force footage into a clip it doesn't fit.
 - `at`: where in a video to start (use a listed moment, a little before it). It must leave enough
   footage for the lines it covers; the validator tells you if it doesn't. Stills use `at: 0`.
-- `mode`: `full` (the footage fills the frame: B-roll, photos) or `pip` (a card at the top with the
-  speaker still visible below: best for `screen` and `screenshot`, so the viewer sees the app *and*
-  the person talking about it).
+- `mode`: `full` (the footage fills the frame: B-roll, photos) or `pip` (the footage fills the frame
+  and the speaker stays on screen in a round face bubble in the corner: best for `screen` and
+  `screenshot`, so the viewer reads the app *and* sees who's talking about it).
 - Prefer footage "recorded with this take" when it fits equally well. Skip `poor` quality, and skip
   footage whose `privacy` note would be on screen in the part you use.
 - Don't use the same footage twice in one clip.

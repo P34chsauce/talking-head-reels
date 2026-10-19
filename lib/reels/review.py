@@ -438,8 +438,8 @@ def main(args: list[str]) -> int:
     if phone:
         ip = lan_ip()
         print(f"on your phone (same Wi-Fi): http://{ip}:{PORT}/?token={token()}" if ip
-              else "no Wi-Fi address found; the phone link isn't available")
-    print("Ctrl-C to stop")
+              else "no Wi-Fi address found; the phone link isn't available", flush=True)
+    print("Ctrl-C to stop", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

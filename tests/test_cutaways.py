@@ -36,7 +36,7 @@ def clip(**over):
 
 
 def visual(**over):
-    return {"from_line": 3, "to_line": 4, "asset": "aaa", "at": 1.0, "mode": "full", "why": "", **over}
+    return {"from_line": 3, "to_line": 3, "asset": "aaa", "at": 1.0, "mode": "full", "why": "", **over}
 
 
 def errs_for(c, assets):
@@ -60,18 +60,18 @@ def test_cutaway_must_sit_on_kept_lines_inside_the_clip():
 
 
 def test_overlapping_cutaways_are_rejected():
-    vs = [visual(), visual(from_line=4, to_line=5, asset="bbb")]
+    vs = [visual(to_line=4), visual(from_line=4, to_line=4, asset="bbb")]
     assert any("overlaps" in e for e in errs_for(clip(visuals=vs), [asset("aaa"), asset("bbb")]))
 
 
 def test_footage_too_short_for_the_lines_says_where_to_start():
-    e = errs_for(clip(visuals=[visual(at=6.0)]), [asset("aaa", duration=10.0)])
+    e = errs_for(clip(visuals=[visual(at=7.0)]), [asset("aaa", duration=10.0)])
     assert len(e) == 1 and "start earlier" in e[0]
     assert errs_for(clip(visuals=[visual(at=12.0)]), [asset("aaa", duration=10.0)])[0].count("outside")
 
 
-def test_stills_have_no_length_limit():
-    assert errs_for(clip(visuals=[visual(at=0, from_line=2, to_line=6)]), [asset("aaa", duration=None, kind="photo")]) == []
+def test_stills_have_no_footage_length_limit():
+    assert errs_for(clip(visuals=[visual(at=0, from_line=2, to_line=2)]), [asset("aaa", duration=None, kind="photo")]) == []
 
 
 def test_plan_keeps_a_clip_without_its_cutaways_when_only_they_fail():
@@ -142,3 +142,8 @@ def test_face_box_finds_no_face_in_a_test_pattern(tmp_path):
         pytest.skip("no Swift toolchain: the face bubble falls back to style.faceCenter")
     assert M.face_box(make_video(tmp_path / "pattern.mp4", secs=2), tmp_path) is None
     assert not list(tmp_path.glob("face*.jpg"))  # sampled frames are cleaned up
+
+
+def test_long_cutaways_are_rejected():
+    e = errs_for(clip(visuals=[visual(at=0, from_line=2, to_line=5)]), [asset("aaa", duration=None, kind="photo")])
+    assert len(e) == 1 and "under 7s" in e[0]

@@ -169,7 +169,7 @@ def length_options(words, ls, fl, ll) -> str:
     return "Nearby ranges that fit: " + ", ".join(f"L{a}-L{b} ({sec:.1f}s)" for _, _, a, b, sec in best) + "."
 
 
-MIN_VISUAL_S = 1.0  # shorter cutaways read as a glitch
+MIN_VISUAL_S, MAX_VISUAL_S = 1.0, 7.0  # shorter reads as a glitch; longer and the viewer loses the speaker
 
 
 def validate_visuals(tag: str, c: dict, words, ls, assets: dict[str, dict]) -> list[str]:
@@ -195,6 +195,8 @@ def validate_visuals(tag: str, c: dict, words, ls, assets: dict[str, dict]) -> l
         secs = span_seconds(words, ls, a, b, [n for n in cut if a < n < b])
         if secs < MIN_VISUAL_S:
             errs.append(f"{vt}: only ~{secs:.1f}s on screen; a cutaway needs at least {MIN_VISUAL_S:.0f}s")
+        elif secs > MAX_VISUAL_S:
+            errs.append(f"{vt}: ~{secs:.1f}s on screen; keep a cutaway under {MAX_VISUAL_S:.0f}s (cover fewer lines)")
         if e["duration"] is not None:
             if v["at"] < 0 or v["at"] >= e["duration"]:
                 errs.append(f"{vt}: `at` {v['at']}s is outside the {e['duration']:.1f}s video")

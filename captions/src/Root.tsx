@@ -9,6 +9,7 @@ const defaults: ReelProps = {
   fps: 30,
   phrases: [],
   emojis: [],
+  visuals: [],
   style: {
     fontSize: 84,
     textColor: "#FFFFFF",

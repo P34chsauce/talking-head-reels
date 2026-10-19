@@ -184,10 +184,11 @@ def measure_lufs(src: Path) -> float:
 REMOTION_DIR = C.CAPTIONS
 
 
-def render_remotion(video: Path, props: dict, out: Path) -> None:
+def render_remotion(video: Path, props: dict, out: Path, extra: list[tuple[Path, str]] = ()) -> None:
+    """`extra`: (source file, name in the public dir) for cutaway footage the props refer to."""
     pub = out.parent / "public"
     pub.mkdir(exist_ok=True)
-    for f, target in ((video, pub / "clip.mp4"), (C.FONT, pub / C.FONT.name)):
+    for f, target in ((video, pub / "clip.mp4"), (C.FONT, pub / C.FONT.name), *((s, pub / n) for s, n in extra)):
         if target.exists():
             target.unlink()
         try:

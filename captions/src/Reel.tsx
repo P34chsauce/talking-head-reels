@@ -1,7 +1,9 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Img,
   OffthreadVideo,
+  Sequence,
   interpolate,
   spring,
   staticFile,
@@ -13,6 +15,16 @@ import { loadFont } from "@remotion/fonts";
 type Word = { w: string; start: number; end: number };
 type Phrase = { start: number; end: number; words: Word[] };
 type Emoji = { emoji: string; start: number; end: number };
+// A cutaway: footage over the talking head (full) or in a card above the captions (pip), seconds.
+type Visual = {
+  file: string;
+  kind: "video" | "image";
+  start: number;
+  end: number;
+  at: number;
+  mode: "full" | "pip";
+  aspect: number; // width / height
+};
 
 export type ReelProps = {
   video: string; // file name inside the job's --public-dir
@@ -20,6 +32,7 @@ export type ReelProps = {
   fps: number;
   phrases: Phrase[];
   emojis: Emoji[];
+  visuals?: Visual[];
   style: {
     fontSize: number;
     textColor: string;
@@ -119,7 +132,62 @@ const EmojiView: React.FC<{ e: Emoji; t: number; frame: number; fps: number; y: 
   );
 };
 
-export const Reel: React.FC<ReelProps> = ({ video, phrases, emojis, style }) => {
+const FADE = 4; // frames: a quick dissolve reads as an edit, a hard cut can look like a glitch
+
+// Inside its <Sequence>, so frame 0 is the cutaway's first frame.
+const VisualView: React.FC<{ v: Visual; fps: number }> = ({ v, fps }) => {
+  const frame = useCurrentFrame();
+  const total = Math.max(1, Math.round((v.end - v.start) * fps));
+  const opacity = interpolate(frame, [0, FADE, total - FADE, total], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  // Stills drift slowly so they don't read as a frozen video.
+  const zoom = v.kind === "image" ? interpolate(frame, [0, total], [1, 1.08]) : 1;
+  const media =
+    v.kind === "video" ? (
+      <OffthreadVideo
+        src={staticFile(v.file)}
+        trimBefore={Math.round(v.at * fps)}
+        muted
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      />
+    ) : (
+      <Img
+        src={staticFile(v.file)}
+        style={{ width: "100%", height: "100%", objectFit: "cover", transform: `scale(${zoom})` }}
+      />
+    );
+  if (v.mode === "full") {
+    return <AbsoluteFill style={{ opacity, backgroundColor: "black" }}>{media}</AbsoluteFill>;
+  }
+  // pip: a rounded card in the upper half, clear of the captions; tall phone screens get a
+  // narrower card so they stay readable without covering the face entirely.
+  const width = v.aspect < 0.7 ? 46 : 84;
+  const lift = interpolate(frame, [0, FADE * 2], [24, 0], { extrapolateRight: "clamp" });
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "6%",
+        left: `${(100 - width) / 2}%`,
+        width: `${width}%`,
+        aspectRatio: `${Math.max(v.aspect, 0.4)}`,
+        maxHeight: "56%",
+        borderRadius: 36,
+        overflow: "hidden",
+        boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+        border: "4px solid rgba(255,255,255,0.9)",
+        opacity,
+        transform: `translateY(${lift}px)`,
+      }}
+    >
+      {media}
+    </div>
+  );
+};
+
+export const Reel: React.FC<ReelProps> = ({ video, phrases, emojis, visuals = [], style }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps;
@@ -127,6 +195,16 @@ export const Reel: React.FC<ReelProps> = ({ video, phrases, emojis, style }) => 
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       <OffthreadVideo src={staticFile(video)} muted />
+      {visuals.map((v, i) => (
+        <Sequence
+          key={i}
+          from={Math.round(v.start * fps)}
+          durationInFrames={Math.max(1, Math.round((v.end - v.start) * fps))}
+          layout="none"
+        >
+          <VisualView v={v} fps={fps} />
+        </Sequence>
+      ))}
       {emojis
         .filter((e) => t >= e.start && t < e.end)
         .map((e, i) => (

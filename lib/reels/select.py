@@ -103,7 +103,11 @@ def _child_env() -> dict:
     return {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE") and k not in banned}
 
 
-def ask_claude(prompt: str, timeout: int = 900, schema: dict = SCHEMA, tools: str = "Skill") -> dict:
+# A long take with a footage menu took over 15 min to plan on 2026-10-19 (it timed out at 900 s).
+PLAN_TIMEOUT_S = 1800
+
+
+def ask_claude(prompt: str, timeout: int = PLAN_TIMEOUT_S, schema: dict = SCHEMA, tools: str = "Skill") -> dict:
     cmd = [C.CLAUDE, "-p", prompt,
            "--output-format", "json",
            "--json-schema", json.dumps(schema),

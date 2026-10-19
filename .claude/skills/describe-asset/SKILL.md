@@ -23,6 +23,8 @@ Read the image before answering.
   what it would illustrate**: subject, setting, action and motion, light, framing. For screens, name the
   app or page and what it shows ("the app's mood check-in screen, a slider moved from 3 to 7"), using
   the channel brief's product names where it's clearly their product. Don't guess at things you can't see.
+  Call a person "the speaker" when it's clearly them, otherwise "a person", and use "they": never guess
+  anyone's gender or pronouns from how they look.
 - `tags`: 3-8 lowercase words or short phrases a search would use (`walk`, `laptop`, `night`,
   `check-in screen`, `coffee`).
 - `moments` (video only, else `[]`): 1-4 usable stretches, each `{"t": seconds, "what": "..."}`, where
